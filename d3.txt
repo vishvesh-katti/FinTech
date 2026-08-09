@@ -1,0 +1,87 @@
+# SYSTEM PROMPT & BUILD PLAN: RetailQuant Proof of Concept
+
+## 1. Project Context & Unsolved Problem
+You are building the "Deployable Surplus Calculator" Proof of Concept (PoC) for a system named RetailQuant. 
+Current retail fintech tools only show "Current Balance" and do not account for upcoming liquidity needs (rent, EMIs) or variable expense trends. This leads to users deploying capital they actually need in the short term.
+
+**The Goal:** Build a system that parses raw bank transactions, calculates a dynamic "Deployable Surplus," and surfaces this number alongside a simple market opportunity model.
+
+## 2. Tech Stack
+*   **Language:** Python 3.10+
+*   **Frontend:** Streamlit (for rapid PoC dashboarding)
+*   **Database/Backend:** Supabase (PostgreSQL) via `supabase-py`
+*   **AI/Parsing:** OpenAI API (gpt-4o-mini or gpt-3.5-turbo) for transaction categorization
+*   **Data Processing:** Pandas, NumPy
+*   **Market Data:** `yfinance`
+
+---
+
+## 3. Implementation Phases
+
+### Phase 1: Environment & Database Initialization
+**Objective:** Set up the foundational repository and database schema.
+1. Initialize a Python virtual environment and create a `requirements.txt` with the stack mentioned above.
+2. Create a Supabase project (assume I have the URL and ANON KEY ready in a `.env` file).
+3. Write a setup script (`db_setup.py`) to create the following PostgreSQL tables if they don't exist:
+    *   `users`: id, name, target_goal_amount, target_timeframe_years
+    *   `transactions`: id, user_id, date, raw_description, amount, is_outflow, category (predicted), is_fixed_obligation
+4. Create a basic `config.py` to securely load environment variables.
+
+### Phase 2: Transaction Ingestion & AI Parsing Engine
+**Objective:** Ingest messy bank/UPI data and intelligently categorize it.
+1. Create a `data_ingestion.py` module.
+2. Write a function to load a mock CSV of bank transactions (columns: Date, Narration, Withdrawal, Deposit).
+3. Create an `ai_parser.py` module utilizing the OpenAI API.
+4. Write a prompt inside the parser that takes a `raw_description` (e.g., "UPI/ZOMATO/HDFC/1234") and returns a JSON object with:
+    *   `clean_name`: "Zomato"
+    *   `category`: "Food"
+    *   `is_fixed_obligation`: boolean (true for Rent, EMI, Subscriptions; false for Food, Shopping)
+5. Create a processing pipeline that reads the mock CSV, passes strings to the AI parser, and writes the structured output to the Supabase `transactions` table.
+
+### Phase 3: The "Deployable Surplus" Math Engine
+**Objective:** Calculate the exact safe-to-invest amount.
+1. Create `calculators.py`.
+2. Write a function `calculate_dynamic_surplus(user_id)` that executes the following logic using Pandas on the Supabase data:
+    *   **Current Balance:** Sum of all deposits minus sum of all withdrawals.
+    *   **Fixed Obligations (Next 30 Days):** Sum of all predictable outflows flagged as `is_fixed_obligation = True` (extrapolated from previous months).
+    *   **Variable Expense Buffer:** Calculate the average monthly spend on variable categories, add a 15% safety buffer.
+    *   **Emergency Fund:** Hardcode a ₹25,000 baseline emergency requirement for the PoC.
+    *   **Deployable Surplus Formula:** `Current Balance - Fixed Obligations - Variable Buffer - Emergency Fund`.
+3. Return a dictionary containing all these computed variables.
+
+### Phase 4: Market Context & Target Routing
+**Objective:** Connect the surplus to a mathematical reality.
+1. Create `market_routing.py`.
+2. Write a function using `yfinance` to fetch the 1-year historical data for the Nifty 50 index (`^NSEI`).
+3. Write a function `calculate_required_cagr(current_surplus, target_amount, years)`. The formula is: $CAGR = \left(\frac{target\_amount}{current\_surplus}\right)^{\frac{1}{years}} - 1$.
+4. Write a function that compares the Required CAGR against the historical 1-year return of the Nifty 50 and outputs a boolean `is_index_viable`.
+
+### Phase 5: Streamlit Point-of-Decision Dashboard
+**Objective:** Visualize the system for the user.
+1. Create `app.py` using Streamlit.
+2. Build a clean, professional UI with the following layout:
+    *   **Top KPI Metrics:** Current Bank Balance vs. True Deployable Surplus (highlight the surplus in green).
+    *   **Liquidity Breakdown:** A bar chart or pie chart showing exactly why the balance is locked (Rent, EMIs, Variable Buffer).
+    *   **Market Opportunity Module:** An input field for "Wealth Target" (e.g., double money in 3 years). Display the Required CAGR mathematically derived from the surplus, and compare it to live Nifty 50 data.
+
+---
+
+## 4. Test Driven Development: Unit Tests
+
+Write `pytest` cases in a `tests/` directory for each phase to validate the logic.
+
+**Phase 1 Tests (DB & Config)**
+*   `test_env_vars_loaded`: Ensure `.env` keys for OpenAI and Supabase are present.
+*   `test_supabase_connection`: Assert that a test read/write to a dummy table returns status 200.
+
+**Phase 2 Tests (AI Parsing)**
+*   `test_llm_json_output`: Mock the OpenAI response and assert the function correctly parses the JSON string into a Python dictionary.
+*   `test_fixed_obligation_flag`: Assert that an input string containing "HDFC HOME LOAN EMI" correctly returns `is_fixed_obligation: True`.
+
+**Phase 3 Tests (Surplus Math)**
+*   `test_surplus_calculation_logic`: Provide a static mock Pandas DataFrame (Balance: 100k, Rent: 20k, Variable Avg: 10k). Assert that the Deployable Surplus exactly matches the expected mathematical output (100k - 20k - (10k * 1.15) - 25k emergency = 43.5k).
+*   `test_negative_surplus`: Provide a DataFrame where obligations exceed the balance. Assert the Deployable Surplus bottoms out at 0 (no negative deployable capital).
+
+**Phase 4 Tests (Market Logic)**
+*   `test_cagr_math`: Assert that `calculate_required_cagr(surplus=100000, target=200000, years=7)` returns approximately `0.104` (10.4%).
+*   `test_yfinance_fetch`: Assert that the `yfinance` fetch function returns a non-empty DataFrame with a `Close` column.

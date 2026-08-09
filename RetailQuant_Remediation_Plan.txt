@@ -1,0 +1,78 @@
+================================================================================
+          RETAILQUANT PRO — ARCHITECTURE & UX REMEDIATION PLAN
+================================================================================
+
+EXECUTIVE SUMMARY
+The current Proof of Concept successfully executes complex quantitative modeling on the backend, but the frontend interface fails to translate this institutional rigor into retail-friendly, actionable intelligence. The UI currently suffers from data visualization flatlines, dead-end error states, deep financial jargon, and logic bugs that break user trust. 
+
+This document outlines the required structural, logic, and UX overhauls for every stage to bridge the gap between the algorithmic engine and the end user.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STAGE 1 & 2: DATA INGESTION & TRANSACTION INTELLIGENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. RESOLVE THE CATEGORIZATION PIPELINE BOTTLENECK
+   - The Bug: Transactions (e.g., Swiggy, Amazon, Rent) are defaulting to the "Other" category and flagged universally as "necessity," resulting in a 0.0% Leakage Score and a useless 100% monolithic pie chart.
+   - The Fix: Do not send all raw data directly to an LLM. Implement a hybrid architecture. Train a lightweight sequence model (like an LSTM) on historical embeddings to handle the bulk of standard merchant categorizations. Only route ambiguous, unmapped, or low-confidence (<0.85) transaction narrations to the Claude API.
+
+2. OVERHAUL FLOW VISUALIZATION (KILL THE PIE CHART)
+   - Retail cash flow is non-linear. Replace the static pie chart with a Plotly Sankey Diagram. Map nodes from 'Total Inflow' → 'Fixed/Variable/Discretionary' → 'Specific Subcategories'.
+   - Add a temporal volatility heatmap (similar to a GitHub contribution graph) to track daily spending intensity, helping users spot behavioral anomalies like weekend lifestyle bloat.
+
+3. ACTIONABLE BEHAVIORAL PROFILING
+   - Move beyond static text blocks like "The Accumulator." Connect the profile to market mechanics.
+   - For high-cash savers, implement a "Cost of Idle Cash" module. Calculate the exact ruinous effect of inflation on their uninvested capital over the past 12 months, benchmarking it against a Liquid BeES or Nifty 50 baseline to reframe saved expenses as generated alpha.
+   - Redesign the "Subscription Audit" from a text string to an interactive table showcasing the compounded annual capital freed up by canceling specific services.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STAGE 3: GOAL ARCHITECTURE & REALITY CHECKS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. DYNAMIC FEASIBILITY GUARDRAILS
+   - The Bug: The UI allows mathematically impossible setups, like targeting ₹1,00,00,000 in 2 years on a retail surplus.
+   - The Fix: Calculate the "Required SIP" in real-time as the user moves the target/horizon sliders (using a baseline un-optimized CAGR). If the required SIP exceeds the 'Deployable Surplus' calculated in Stage 2, trigger a coral warning text: "This timeline requires ₹X/month, exceeding your calculated surplus."
+
+2. NOMINAL VS. REAL PURCHASING POWER
+   - Users fundamentally misunderstand inflation. Add a toggle beneath the Goal Target: "Target in Today's Value" vs. "Target in Future Value." If they select Today's Value, auto-calculate and display the inflated nominal target the engine will actually solve for.
+
+3. RUPEE-ANCHORED RISK PROFILING
+   - Stop using abstract 1-5 scale percentages for drawdown tolerance. Anchor the risk questions to the user's actual parsed data. 
+   - Example: "If your ₹11.9 Lakh portfolio drops to ₹9.5 Lakhs during a market crash, what is your next move?" This forces a visceral, accurate emotional response.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STAGE 4: MARKET INTELLIGENCE & PORTFOLIO ALLOCATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ERADICATE INSTITUTIONAL JARGON
+   - Retail users equate "Debt" with personal liability (loans/credit cards). Seeing a "43% Debt Allocation" causes immediate confusion.
+   - Rename "Debt" to "Fixed Income (Bonds & G-Secs)".
+   - Rename "Liquid" to "Cash Equivalents (FDs & Liquid Funds)".
+   - Group the donut chart visually by function: Growth Assets (blues/purples) vs. Defensive Assets (greens/golds), with legends explicitly stating the asset's purpose (e.g., "Stabilizes portfolio during crashes").
+
+2. EXPLAIN THE RISK/REWARD TRADEOFF
+   - A user assigned an "Ultra-Conservative" profile is shown a massive ₹4.4M goal shortfall without understanding why.
+   - Dynamically link the UI states. Inject explanation text: "Your profile prioritizes absolute safety, keeping volatility low (3.1%). However, safe assets generate lower returns (6.9%). To close your ₹4.4M gap, you must add equity (volatility) or increase your SIP."
+   - Contextualize quantitative outputs. Do not just print "Sharpe Ratio: 0.13". Translate it into a plain-English tooltip about risk-adjusted efficiency.
+
+3. ADVANCED SIGNAL INTEGRATION
+   - Instead of relying purely on a static 60/40 blend of risk-profile bases and Efficient Frontier optimizations, architect an interface for custom quantitative overlays. The system should allow the integration of dynamic market regime signals—such as dual-adaptive momentum blocks—to systematically adjust the equity-to-fixed-income ratio based on real-time backtest parameters, bringing true institutional alpha to the retail allocation.
+
+4. GRACEFUL API DEGRADATION
+   - If pricing data fails to fetch, do not display a glaring "UNKNOWN (Insufficient data for 200 DMA)" error. Default to a neutral macro state or hide the regime card to preserve trust.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STAGE 5 & 6: STRESS TESTING & ACTION PLAN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. MONTE CARLO "WHAT-IF" RESOLUTION ENGINE
+   - The Bug: Displaying a flat "0.0% probability of success" is a dead end that causes user churn.
+   - The Fix: Transform the Monte Carlo output into an interactive simulator. When a failure state is reached, auto-generate calculated alternatives (e.g., "Wait 4 more years", "Increase SIP to ₹X"). Provide sliders below the chart allowing the user to adjust the Time Horizon, SIP, and Risk Profile to dynamically pull the probability curve back into the success zone.
+
+2. FORMATTING AND NUMBER CLEANSING
+   - Remove trailing decimal artifacts (`₹5,385,252...`). Implement strict UI formatting using the Indian numbering system (e.g., ₹53.85 Lakhs or ₹53,85,252) to clean up layout overflows.
+
+3. CONTEXT-AWARE ACTION PLAN LOGIC
+   - The Bug: The Short-Term action plan erroneously suggests setting up an SIP equal to the entire Deployable Lump Sum (₹1,195,526/month).
+   - The Fix: Correct the variable mapping to point to the `Monthly SIP Surplus`.
+   - The Action Plan must react to the Monte Carlo state. If the probability of success is <50%, the first and only immediate action should be "Re-evaluate Goal Parameters." Do not suggest opening a brokerage account to execute a mathematically doomed plan.
+================================================================================

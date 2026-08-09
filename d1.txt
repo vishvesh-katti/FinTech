@@ -1,0 +1,1363 @@
+================================================================================
+       RETAILQUANT — DEPLOYABLE SURPLUS CALCULATOR
+       COMPLETE MVP BUILD GUIDE FOR AI CODING AGENT (CURSOR / WINDSURF)
+       Version 1.0 | Written for a Non-Technical Founder
+================================================================================
+
+HOW TO USE THIS DOCUMENT
+-------------------------
+Give this entire file to your AI coding agent (Cursor, Windsurf, etc.) and say:
+"Follow this document exactly, phase by phase, do not skip any step, and do not
+move to the next phase until the tests for the current phase pass completely."
+
+The agent will read the specifications, write the code, and run the tests. Your
+only job is to paste in your secret keys when asked and run the commands the
+agent tells you to run.
+
+================================================================================
+SECTION 0: PROJECT OVERVIEW & PHILOSOPHY
+================================================================================
+
+WHAT THIS PRODUCT DOES:
+RetailQuant is a personal finance intelligence tool. Most banking apps show you
+only your current account balance. The problem is: that number is misleading.
+It includes money you MUST spend soon (rent, EMI, subscriptions) and money you
+SHOULD keep as a safety cushion. RetailQuant strips all of that away and shows
+you one crystal-clear number: your "Deployable Surplus" — the money that is
+genuinely free for you to invest right now without risk.
+
+It then connects that surplus to live Indian market data (Nifty 50) and tells
+you mathematically whether your investment goal is realistic.
+
+THE CORE FORMULA (the heart of the product):
+Deployable Surplus = Current Balance
+                   - Fixed Obligations (rent, EMI, subscriptions due next 30 days)
+                   - Variable Expense Buffer (avg monthly variable spend × 1.15)
+                   - Emergency Fund Reserve (₹25,000 hardcoded baseline)
+
+THE USER JOURNEY IN ONE PARAGRAPH:
+A user uploads their bank statement CSV. The system reads every transaction,
+uses an AI model to label each one (e.g., "Zomato → Food, not fixed" or
+"HDFC EMI → Loan, fixed obligation"). It then runs the formula above, displays
+the result on a clean dashboard, and lets the user type in a wealth target
+(e.g., "I want ₹5,00,000 in 3 years"). The system calculates the exact annual
+return rate (CAGR) they would need to hit that goal from their current surplus
+and compares it to the Nifty 50's real historical performance.
+
+================================================================================
+SECTION 1: FOLDER & FILE STRUCTURE
+================================================================================
+
+Create the following folder and file structure EXACTLY as written below.
+Every file listed here will be described in full detail in later sections.
+
+retailquant/                        ← Root project folder (create this)
+│
+├── .env                            ← Secret keys file (NOT committed to git)
+├── .gitignore                      ← Tells git to ignore .env and other clutter
+├── requirements.txt                ← List of all Python libraries to install
+├── config.py                       ← Loads and validates secret keys from .env
+├── db_setup.py                     ← Creates database tables in Supabase
+├── data_ingestion.py               ← Reads and cleans the CSV bank statement
+├── ai_parser.py                    ← Sends transactions to AI for categorization
+├── calculators.py                  ← Runs the Deployable Surplus math engine
+├── market_routing.py               ← Fetches Nifty 50 data, calculates CAGR
+├── app.py                          ← The Streamlit web dashboard (main UI)
+├── mock_transactions.csv           ← Sample bank statement for testing
+│
+└── tests/                          ← All test files live here
+    ├── __init__.py                 ← Empty file, makes tests/ a Python package
+    ├── test_phase1_config_db.py    ← Tests for config and database
+    ├── test_phase2_ai_parsing.py   ← Tests for AI transaction parser
+    ├── test_phase3_calculators.py  ← Tests for surplus math engine
+    ├── test_phase4_market.py       ← Tests for market data and CAGR
+    └── test_phase5_integration.py  ← End-to-end integration tests
+
+================================================================================
+SECTION 2: THE .gitignore FILE
+================================================================================
+
+Create a file named exactly ".gitignore" in the root folder with this content:
+
+--- START OF FILE CONTENT ---
+# Secret keys — NEVER commit this
+.env
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment folder
+venv/
+env/
+.venv/
+
+# Editor folders
+.vscode/
+.idea/
+.cursor/
+
+# OS junk files
+.DS_Store
+Thumbs.db
+
+# Test coverage reports
+.coverage
+htmlcov/
+.pytest_cache/
+--- END OF FILE CONTENT ---
+
+================================================================================
+SECTION 3: requirements.txt
+================================================================================
+
+Create a file named "requirements.txt" in the root folder with this content.
+These are all the external Python libraries the project needs.
+
+--- START OF FILE CONTENT ---
+streamlit==1.35.0
+supabase==2.4.3
+openai==1.30.1
+pandas==2.2.2
+numpy==1.26.4
+yfinance==0.2.40
+python-dotenv==1.0.1
+pytest==8.2.0
+pytest-mock==3.14.0
+plotly==5.22.0
+--- END OF FILE CONTENT ---
+
+IMPORTANT INSTRUCTION FOR AGENT:
+After creating this file, run the following command in the terminal to install
+all libraries:
+    pip install -r requirements.txt
+
+================================================================================
+SECTION 4: config.py — Secret Keys Loader
+================================================================================
+
+PURPOSE:
+This file is the single place where all secret keys are loaded from the .env
+file. Every other file in the project will import from config.py instead of
+reading the .env file directly. This is safer and cleaner.
+
+WHAT IT MUST DO:
+1. Use the "python-dotenv" library to load the .env file.
+2. Read three environment variables: SUPABASE_URL, SUPABASE_ANON_KEY,
+   OPENAI_API_KEY.
+3. If ANY of these three variables is missing or empty, immediately raise a
+   clear error message telling the user exactly which key is missing.
+4. Expose these three values as simple variables that other files can import.
+5. Also create and expose a Supabase client object that other files can use
+   to talk to the database.
+
+BEHAVIOR SPECIFICATION:
+- If SUPABASE_URL is missing → raise ValueError("SUPABASE_URL is missing from
+  your .env file. Please add it.")
+- If SUPABASE_ANON_KEY is missing → raise ValueError("SUPABASE_ANON_KEY is
+  missing from your .env file. Please add it.")
+- If OPENAI_API_KEY is missing → raise ValueError("OPENAI_API_KEY is missing
+  from your .env file. Please add it.")
+- The Supabase client should be created using: create_client(SUPABASE_URL,
+  SUPABASE_ANON_KEY) from the supabase library.
+
+VARIABLES TO EXPOSE (importable by other files):
+- SUPABASE_URL (string)
+- SUPABASE_ANON_KEY (string)
+- OPENAI_API_KEY (string)
+- supabase_client (the connected Supabase client object)
+
+================================================================================
+SECTION 5: db_setup.py — Database Table Creator
+================================================================================
+
+PURPOSE:
+This script creates the two database tables in Supabase that the application
+needs. It should be safe to run multiple times — if the tables already exist,
+it should not crash; it should just skip creation.
+
+IMPORTANT NOTE FOR AGENT:
+Supabase does not support running raw SQL CREATE TABLE statements through the
+Python client library directly in a simple way for a PoC. Instead, use the
+Supabase Python client's RPC functionality OR print the SQL and instruct the
+user to run it manually in the Supabase SQL editor.
+
+THE APPROACH TO USE:
+Generate the SQL statements as strings and print them to the console with clear
+instructions telling the user to copy them into the Supabase SQL editor
+(found at: Project Dashboard → SQL Editor → New Query).
+
+TABLE 1: "users"
+SQL to generate and print:
+    CREATE TABLE IF NOT EXISTS users (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        name TEXT NOT NULL,
+        target_goal_amount NUMERIC(15, 2) NOT NULL DEFAULT 0,
+        target_timeframe_years INTEGER NOT NULL DEFAULT 5,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+TABLE 2: "transactions"
+SQL to generate and print:
+    CREATE TABLE IF NOT EXISTS transactions (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        user_id UUID REFERENCES users(id),
+        date DATE NOT NULL,
+        raw_description TEXT NOT NULL,
+        amount NUMERIC(15, 2) NOT NULL,
+        is_outflow BOOLEAN NOT NULL DEFAULT TRUE,
+        category TEXT,
+        is_fixed_obligation BOOLEAN NOT NULL DEFAULT FALSE,
+        clean_name TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+WHAT THE SCRIPT SHOULD DO WHEN RUN:
+1. Print a header: "=== RetailQuant Database Setup ==="
+2. Print: "Please run the following SQL in your Supabase SQL Editor:"
+3. Print the full SQL for both tables clearly separated.
+4. Print: "After running the SQL, your database is ready."
+5. Then attempt a test connection to Supabase by importing supabase_client from
+   config.py and doing a simple select query on the "users" table.
+6. If the connection works, print: "✓ Supabase connection verified successfully."
+7. If it fails, print the error with helpful context.
+
+================================================================================
+SECTION 6: mock_transactions.csv — Sample Bank Data
+================================================================================
+
+PURPOSE:
+This CSV file simulates a real Indian bank statement. It is used for all
+development and testing. It must be realistic enough to test all categories.
+
+COLUMNS: Date, Narration, Withdrawal, Deposit
+
+Create this file with EXACTLY the following rows (50 rows of data):
+The file should cover 3 months of transactions (approximately).
+
+--- START OF FILE CONTENT ---
+Date,Narration,Withdrawal,Deposit
+2024-01-01,Opening Balance,,100000
+2024-01-02,UPI/ZOMATO/FOOD/ORDER9182,450,
+2024-01-03,UPI/SWIGGY/BANGALORE/7364,380,
+2024-01-04,NEFT/HDFC HOME LOAN EMI/JAN,18000,
+2024-01-05,UPI/AMAZON/SHOPPING/4521,1200,
+2024-01-07,UPI/NETFLIX/SUBSCRIPTION/9901,649,
+2024-01-08,UPI/BIGBASKET/GROCERIES/1122,2100,
+2024-01-10,RENT PAYMENT/OWNER KRISHNA/JAN,15000,
+2024-01-11,UPI/ZOMATO/FOOD/ORDER1020,520,
+2024-01-12,UPI/OLA/RIDE/BANGALORE,180,
+2024-01-13,UPI/SPOTIFY/SUBSCRIPTION/6612,119,
+2024-01-15,SALARY CREDIT/EMPLOYER ACME,,85000
+2024-01-16,UPI/MYNTRA/FASHION/3301,3400,
+2024-01-18,UPI/SWIGGY/BANGALORE/9988,290,
+2024-01-20,UPI/BIGBASKET/GROCERIES/5544,1800,
+2024-01-22,UPI/PETROL/BPCL/7712,2500,
+2024-01-25,NEFT/SBI PERSONAL LOAN EMI,5000,
+2024-01-28,UPI/ZOMATO/FOOD/ORDER4455,670,
+2024-01-30,UPI/AMAZON/SHOPPING/8871,890,
+2024-02-01,UPI/SWIGGY/BANGALORE/2233,310,
+2024-02-03,UPI/BIGBASKET/GROCERIES/6677,2300,
+2024-02-04,NEFT/HDFC HOME LOAN EMI/FEB,18000,
+2024-02-05,UPI/NETFLIX/SUBSCRIPTION/1122,649,
+2024-02-07,UPI/OLA/RIDE/BANGALORE,220,
+2024-02-08,RENT PAYMENT/OWNER KRISHNA/FEB,15000,
+2024-02-10,UPI/ZOMATO/FOOD/ORDER7788,490,
+2024-02-12,UPI/RAPIDO/RIDE/BANGALORE,95,
+2024-02-14,UPI/AMAZON/SHOPPING/3344,2200,
+2024-02-15,SALARY CREDIT/EMPLOYER ACME,,85000
+2024-02-18,UPI/SPOTIFY/SUBSCRIPTION/3344,119,
+2024-02-20,UPI/SWIGGY/BANGALORE/5566,440,
+2024-02-22,UPI/BIGBASKET/GROCERIES/8899,1950,
+2024-02-24,UPI/MYNTRA/FASHION/1122,1800,
+2024-02-26,NEFT/SBI PERSONAL LOAN EMI,5000,
+2024-02-28,UPI/PETROL/BPCL/3344,1800,
+2024-03-01,UPI/ZOMATO/FOOD/ORDER5566,560,
+2024-03-03,UPI/SWIGGY/BANGALORE/7788,370,
+2024-03-04,NEFT/HDFC HOME LOAN EMI/MAR,18000,
+2024-03-05,UPI/NETFLIX/SUBSCRIPTION/5566,649,
+2024-03-07,UPI/BIGBASKET/GROCERIES/2211,2050,
+2024-03-08,RENT PAYMENT/OWNER KRISHNA/MAR,15000,
+2024-03-10,UPI/OLA/RIDE/BANGALORE,260,
+2024-03-12,UPI/AMAZON/SHOPPING/9900,1500,
+2024-03-14,UPI/SPOTIFY/SUBSCRIPTION/7788,119,
+2024-03-15,SALARY CREDIT/EMPLOYER ACME,,85000
+2024-03-17,UPI/MYNTRA/FASHION/6677,4200,
+2024-03-19,UPI/ZOMATO/FOOD/ORDER3344,480,
+2024-03-22,NEFT/SBI PERSONAL LOAN EMI,5000,
+2024-03-24,UPI/PETROL/BPCL/5566,2200,
+2024-03-28,UPI/SWIGGY/BANGALORE/1122,330,
+--- END OF FILE CONTENT ---
+
+================================================================================
+SECTION 7: data_ingestion.py — CSV Reader & Cleaner
+================================================================================
+
+PURPOSE:
+This module reads the CSV bank statement, cleans it up, and prepares it for
+the AI parser. It handles messy real-world CSV quirks.
+
+FUNCTIONS TO WRITE:
+
+--- FUNCTION 1: load_transactions(filepath) ---
+INPUT: filepath (string) — path to the CSV file
+OUTPUT: A Pandas DataFrame with cleaned data
+
+STEP BY STEP LOGIC:
+1. Read the CSV using pandas.read_csv().
+2. Handle the case where the CSV might not exist — raise a clear FileNotFoundError
+   with message: f"Cannot find transaction file at: {filepath}"
+3. Strip all leading/trailing whitespace from column names.
+4. The "Withdrawal" and "Deposit" columns may have empty cells (NaN).
+   Fill all NaN values in both columns with 0.
+5. Convert the "Withdrawal" column to float type.
+6. Convert the "Deposit" column to float type.
+7. Convert the "Date" column to proper datetime objects using
+   pandas.to_datetime() with format="%Y-%m-%d". Handle errors with
+   errors='coerce' (bad dates become NaT).
+8. Drop any rows where the Date is NaT (bad date rows).
+9. Add a new column called "is_outflow": True if Withdrawal > 0, False otherwise.
+10. Add a new column called "amount": equal to Withdrawal if is_outflow is True,
+    equal to Deposit if is_outflow is False.
+11. Rename the column "Narration" to "raw_description".
+12. Return only these columns in this order:
+    ["Date", "raw_description", "amount", "is_outflow"]
+13. Reset the DataFrame index so it starts from 0.
+
+--- FUNCTION 2: get_summary_stats(df) ---
+INPUT: A cleaned Pandas DataFrame from load_transactions()
+OUTPUT: A Python dictionary
+
+WHAT IT CALCULATES:
+- "total_rows": total number of transaction rows
+- "total_deposits": sum of the "amount" column where is_outflow is False
+- "total_withdrawals": sum of the "amount" column where is_outflow is True
+- "date_range_start": the earliest date as a string in "YYYY-MM-DD" format
+- "date_range_end": the latest date as a string in "YYYY-MM-DD" format
+
+Return this as a Python dictionary.
+
+================================================================================
+SECTION 8: ai_parser.py — AI Transaction Categorizer
+================================================================================
+
+PURPOSE:
+This module takes a raw bank transaction description string (e.g.,
+"UPI/ZOMATO/FOOD/ORDER9182") and uses the OpenAI API to intelligently return
+structured information about it: a clean name, a spending category, and whether
+it is a fixed financial obligation.
+
+IMPORTANT DESIGN DECISIONS:
+- Use the "gpt-4o-mini" model (it is fast and cheap, perfect for this PoC).
+- Each API call parses ONE transaction description.
+- The response MUST be valid JSON. Use a strict system prompt to enforce this.
+- Add error handling: if the API call fails or returns bad JSON, do not crash.
+  Return a safe default instead.
+
+--- FUNCTION 1: parse_single_transaction(raw_description) ---
+INPUT: raw_description (string) — e.g., "UPI/ZOMATO/FOOD/ORDER9182"
+OUTPUT: A Python dictionary with exactly these three keys:
+    {
+        "clean_name": "Zomato",
+        "category": "Food",
+        "is_fixed_obligation": False
+    }
+
+THE EXACT SYSTEM PROMPT TO USE (copy this exactly):
+    "You are a financial transaction categorizer for Indian bank statements.
+     You will receive a raw bank transaction narration string.
+     You must respond ONLY with a valid JSON object and nothing else.
+     No preamble, no explanation, no markdown, no code blocks.
+     Just the raw JSON object.
+     The JSON must have exactly these three fields:
+     - clean_name: A human-readable merchant or payee name (e.g., 'Zomato', 'HDFC Home Loan', 'Spotify')
+     - category: One of these exact values only: Food, Groceries, Transport, Shopping, Entertainment, Utilities, Rent, Loan EMI, Salary, Investment, Other
+     - is_fixed_obligation: A boolean (true or false). Set to true ONLY for Rent, Loan EMI, and Subscription payments that recur every month. Set to false for variable spending like Food, Shopping, Transport."
+
+THE USER MESSAGE FORMAT TO USE:
+    f"Categorize this Indian bank transaction: {raw_description}"
+
+LOGIC STEPS:
+1. Import openai and config.py (to get OPENAI_API_KEY).
+2. Create the OpenAI client with the API key.
+3. Call client.chat.completions.create() with:
+   - model: "gpt-4o-mini"
+   - messages: [system message, user message as described above]
+   - max_tokens: 150
+   - temperature: 0 (we want deterministic, consistent output)
+4. Extract the text content from the response.
+5. Parse the text as JSON using json.loads().
+6. Validate that the result has all three required keys.
+7. If JSON parsing fails, return this safe default:
+   {"clean_name": raw_description, "category": "Other", "is_fixed_obligation": False}
+8. If the API call raises any exception, catch it, print a warning, and return
+   the same safe default.
+
+--- FUNCTION 2: parse_all_transactions(df) ---
+INPUT: A cleaned Pandas DataFrame from data_ingestion.load_transactions()
+OUTPUT: The same DataFrame with three new columns added:
+    - "clean_name" (string)
+    - "category" (string)
+    - "is_fixed_obligation" (boolean)
+
+LOGIC STEPS:
+1. Create three empty lists: clean_names, categories, is_fixed_obligations.
+2. Loop through every row in the DataFrame.
+3. For each row, call parse_single_transaction(row["raw_description"]).
+4. Append the three values from the result to their respective lists.
+5. Print progress every 10 rows: "Parsed 10/50 transactions..."
+6. After the loop, add the three lists as new columns to the DataFrame.
+7. Return the enriched DataFrame.
+
+IMPORTANT: This function will make one API call per transaction row. For 50
+rows in the mock CSV, it will make approximately 50 API calls. This is expected
+for the PoC. In production, you would batch these.
+
+================================================================================
+SECTION 9: calculators.py — The Deployable Surplus Math Engine
+================================================================================
+
+PURPOSE:
+This is the core mathematical brain of RetailQuant. It takes transaction data
+and computes the Deployable Surplus — the safe-to-invest amount.
+
+--- FUNCTION 1: calculate_dynamic_surplus(transactions_df) ---
+INPUT: An enriched Pandas DataFrame (output of ai_parser.parse_all_transactions)
+OUTPUT: A Python dictionary with all computed values
+
+STEP BY STEP CALCULATION LOGIC:
+
+STEP A — CURRENT BALANCE:
+Formula: sum of all deposits (is_outflow == False) MINUS sum of all withdrawals
+         (is_outflow == True)
+Variable name: current_balance
+
+STEP B — FIXED OBLIGATIONS (NEXT 30 DAYS):
+Definition: These are payments the user is CERTAIN to make next month because
+they happen every single month (rent, loan EMIs, subscriptions).
+Logic:
+1. Filter the DataFrame: keep only rows where is_fixed_obligation == True
+   AND is_outflow == True.
+2. Group by "clean_name" (or "category").
+3. For each unique fixed obligation, take the AVERAGE monthly amount
+   (total amount for that obligation / number of months it appears).
+4. Sum all these averages together.
+Variable name: fixed_obligations_next_30_days
+
+STEP C — VARIABLE EXPENSE BUFFER:
+Definition: Average monthly variable spend with a 15% safety buffer added.
+Logic:
+1. Filter the DataFrame: keep only rows where is_fixed_obligation == False
+   AND is_outflow == True.
+2. Determine the number of months in the data (difference between max date and
+   min date, divided by 30, rounded up to at least 1).
+3. Calculate total variable spend / number of months = average monthly variable.
+4. Multiply by 1.15 (add 15% buffer).
+Variable name: variable_expense_buffer
+
+STEP D — EMERGENCY FUND:
+Hardcoded constant: ₹25,000
+Variable name: emergency_fund = 25000
+
+STEP E — DEPLOYABLE SURPLUS:
+Formula: current_balance - fixed_obligations_next_30_days
+         - variable_expense_buffer - emergency_fund
+Variable name: deployable_surplus
+
+CRITICAL RULE: deployable_surplus must NEVER go below 0. If the formula
+produces a negative number, set deployable_surplus = 0.
+
+RETURN VALUE (dictionary with ALL these keys):
+{
+    "current_balance": <float>,
+    "fixed_obligations_next_30_days": <float>,
+    "variable_expense_buffer": <float>,
+    "emergency_fund": 25000,
+    "deployable_surplus": <float>,
+    "is_surplus_zero": <boolean — True if the surplus was clamped to 0>,
+    "breakdown": {
+        "fixed_items": <list of dicts: [{"name": str, "amount": float}]>,
+        "variable_categories": <list of dicts: [{"category": str, "monthly_avg": float}]>
+    }
+}
+
+The "breakdown" key is important for the dashboard pie chart.
+"fixed_items" should list each recurring obligation by name and its monthly cost.
+"variable_categories" should list each variable category and its average monthly spend.
+
+--- FUNCTION 2: format_inr(amount) ---
+INPUT: A float number (e.g., 43500.75)
+OUTPUT: A formatted string in Indian Rupee format (e.g., "₹43,500.75")
+LOGIC: Use Python's locale or manual string formatting to insert commas at
+Indian number positions (e.g., 1,00,000 not 100,000).
+
+================================================================================
+SECTION 10: market_routing.py — Market Data & CAGR Calculator
+================================================================================
+
+PURPOSE:
+This module fetches live Nifty 50 data and helps the user understand whether
+their wealth target is realistic given their deployable surplus.
+
+--- FUNCTION 1: fetch_nifty50_1year_data() ---
+INPUT: None
+OUTPUT: A Pandas DataFrame with at least a "Close" column and a DatetimeIndex
+
+LOGIC:
+1. Use yfinance.download() to fetch data for ticker "^NSEI".
+2. Set period="1y" (1 year of historical data).
+3. Set auto_adjust=True.
+4. If the download returns an empty DataFrame, raise a ConnectionError with
+   message: "Could not fetch Nifty 50 data. Check your internet connection."
+5. Return the DataFrame.
+
+--- FUNCTION 2: calculate_nifty50_1year_return(nifty_df) ---
+INPUT: The DataFrame from fetch_nifty50_1year_data()
+OUTPUT: A float representing the percentage return (e.g., 0.15 means 15%)
+
+LOGIC:
+1. Get the first available "Close" price (oldest date in the DataFrame).
+2. Get the last available "Close" price (most recent date in the DataFrame).
+3. Calculate: (last_price - first_price) / first_price
+4. Return this as a float (e.g., 0.1523 for 15.23% return).
+
+--- FUNCTION 3: calculate_required_cagr(current_surplus, target_amount, years) ---
+INPUT:
+    - current_surplus: float — the deployable surplus in rupees
+    - target_amount: float — the wealth target in rupees
+    - years: int or float — the time horizon in years
+OUTPUT: A float representing the required annual return rate
+
+FORMULA: CAGR = (target_amount / current_surplus) ^ (1 / years) - 1
+
+EDGE CASES:
+- If current_surplus <= 0, raise a ValueError with message:
+  "Cannot calculate CAGR: Deployable surplus is zero or negative. You need
+   more free capital before you can work toward an investment target."
+- If years <= 0, raise a ValueError with message:
+  "Cannot calculate CAGR: Time horizon must be greater than zero."
+- If target_amount <= current_surplus, return 0.0 (no growth needed).
+
+--- FUNCTION 4: evaluate_market_viability(required_cagr, nifty_1yr_return) ---
+INPUT:
+    - required_cagr: float — from calculate_required_cagr()
+    - nifty_1yr_return: float — from calculate_nifty50_1year_return()
+OUTPUT: A Python dictionary
+
+LOGIC:
+Compare the required CAGR against the Nifty 50's actual 1-year return.
+    - If required_cagr <= nifty_1yr_return: the Nifty 50 index is historically
+      sufficient to meet the goal.
+    - If required_cagr > nifty_1yr_return but <= 0.18 (18%): the goal is
+      aggressive but potentially achievable with active equity funds.
+    - If required_cagr > 0.18 (18%): the goal is very high-risk or
+      unrealistic with standard market instruments.
+
+RETURN VALUE:
+{
+    "required_cagr": <float>,
+    "nifty_1yr_return": <float>,
+    "is_index_viable": <boolean>,
+    "viability_label": <string: "Conservative", "Moderate", or "Aggressive">,
+    "viability_message": <string: a human-readable explanation>
+}
+
+viability_message examples:
+- Conservative: "Your target can be met by simply investing in a Nifty 50
+  index fund. This is a low-risk, hands-off strategy."
+- Moderate: "Your target requires returns slightly above the Nifty 50 average.
+  Consider actively managed large-cap or flexi-cap mutual funds."
+- Aggressive: "Your target requires very high returns. This level of growth
+  involves significant risk. Consider extending your time horizon or
+  reducing your target amount."
+
+================================================================================
+SECTION 11: app.py — Streamlit Dashboard (The Frontend)
+================================================================================
+
+PURPOSE:
+This is the main user interface. When the user runs "streamlit run app.py",
+this opens in their browser and shows the complete RetailQuant dashboard.
+
+DESIGN PHILOSOPHY & AESTHETIC DIRECTION:
+The dashboard should feel like a premium Indian fintech product — think Jupiter
+or Fi Money in sophistication, but darker and more data-focused. The aesthetic
+is "Refined Dark Finance": dark navy/charcoal backgrounds, sharp white text,
+one bold accent color (use deep gold: #C9A84C or electric teal: #00D4AA),
+clean monospace numbers, and minimal but impactful use of color.
+
+DO NOT use:
+- Default Streamlit white background
+- Generic blue buttons
+- Comic Sans or Arial fonts
+
+DO USE:
+- st.set_page_config() with a dark layout
+- Custom CSS injected via st.markdown() with unsafe_allow_html=True
+- Plotly charts (not Matplotlib — they're more interactive and beautiful)
+- Clear section headers with thin horizontal rules underneath
+
+STREAMLIT PAGE CONFIGURATION (must be the FIRST Streamlit command):
+    st.set_page_config(
+        page_title="RetailQuant | Deployable Surplus Calculator",
+        page_icon="₹",
+        layout="wide",
+        initial_sidebar_state="collapsed"
+    )
+
+CUSTOM CSS TO INJECT (inject via st.markdown at the top, after set_page_config):
+- Background color: #0D1117 (very dark navy)
+- Primary text color: #E6EDF3 (soft white)
+- Accent color: #C9A84C (gold)
+- Card/container background: #161B22
+- Border color: #30363D
+- Font for numbers: use CSS font-variant-numeric: tabular-nums for crisp number alignment
+- Metric value font size: 2.5rem, bold
+- Section headers: uppercase, letter-spacing: 0.1em, font-size: 0.75rem, color: accent
+
+FULL PAGE LAYOUT (in order from top to bottom):
+
+--- SECTION A: HEADER ---
+Display the RetailQuant logo/wordmark as text:
+    Large bold "RetailQuant" in gold color
+    Subtitle below: "Know exactly how much you can afford to invest."
+    A thin horizontal divider line
+
+--- SECTION B: FILE UPLOAD (Sidebar or Top of Page) ---
+Use st.file_uploader() to let the user upload a CSV file.
+Label: "Upload Your Bank Statement (CSV)"
+accepted types: ["csv"]
+Below the uploader, add a note: "Your file is processed locally. Nothing is
+stored without your permission."
+
+Default behavior: If no file is uploaded, use the mock_transactions.csv file
+so the dashboard always shows data.
+
+--- SECTION C: PROCESSING INDICATOR ---
+When a file is uploaded (or using mock data), show:
+    st.spinner("Analyzing your transactions with AI...")
+While inside the spinner:
+1. Call data_ingestion.load_transactions() on the file.
+2. Call ai_parser.parse_all_transactions() on the result.
+3. Call calculators.calculate_dynamic_surplus() on the enriched data.
+4. Call market_routing.fetch_nifty50_1year_data() to get market data.
+5. Call market_routing.calculate_nifty50_1year_return() on the market data.
+
+Cache these results using @st.cache_data where possible to avoid re-running
+on every interaction.
+
+--- SECTION D: TOP KPI ROW (4 columns) ---
+Use st.columns(4) to show 4 metric cards side by side:
+
+Card 1 — CURRENT BALANCE:
+    Label: "CURRENT BALANCE"
+    Value: formatted as ₹X,XX,XXX
+    Color: white
+
+Card 2 — DEPLOYABLE SURPLUS:
+    Label: "DEPLOYABLE SURPLUS"
+    Value: formatted as ₹X,XX,XXX
+    Color: Gold (#C9A84C) if surplus > 0, Red (#FF4B4B) if surplus == 0
+    Delta indicator: show the difference between balance and surplus as a
+    negative delta (e.g., "₹56,500 locked") in a muted red
+
+Card 3 — LOCKED CAPITAL:
+    Label: "LOCKED CAPITAL"
+    Value: current_balance - deployable_surplus, formatted as ₹X,XX,XXX
+    Color: muted red or orange
+    Tooltip or caption: "Fixed obligations + buffers + emergency fund"
+
+Card 4 — NIFTY 50 (1YR RETURN):
+    Label: "NIFTY 50 (1YR)"
+    Value: formatted as XX.X%
+    Color: Green if positive, Red if negative
+
+--- SECTION E: LIQUIDITY BREAKDOWN CHART ---
+Title (with gold accent line): "WHY YOUR MONEY IS LOCKED"
+Subtitle: "Breakdown of capital reserved for obligations and buffers"
+
+Create a Plotly horizontal bar chart showing:
+- Fixed Obligation items (each displayed separately, e.g., "Home Loan EMI: ₹18,000")
+- "Variable Buffer" as one bar: the variable_expense_buffer amount
+- "Emergency Reserve" as one bar: ₹25,000
+
+CHART STYLING:
+- Background: transparent (paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+- Bar color: Use a gradient from gold (#C9A84C) for fixed items to teal for buffers
+- Text labels on bars showing the amount in ₹
+- Font color: #E6EDF3
+- No gridlines (showgrid=False)
+- Horizontal orientation
+- Height: 350px
+
+Below the chart, show a small text summary:
+"Total locked capital: ₹X,XX,XXX out of your ₹X,XX,XXX balance."
+
+--- SECTION F: TRANSACTION TABLE ---
+Title: "TRANSACTION ANALYSIS"
+Subtitle: "AI-categorized view of your recent transactions"
+
+Show a styled Pandas DataFrame with these columns:
+["Date", "clean_name", "category", "amount", "is_fixed_obligation", "is_outflow"]
+
+Rename columns for display:
+    Date → Date
+    clean_name → Merchant
+    category → Category
+    amount → Amount (₹)
+    is_fixed_obligation → Fixed?
+    is_outflow → Outflow?
+
+Style notes:
+- Show "Fixed" in orange text, "Variable" in teal text for the Fixed? column
+- Show amounts right-aligned and formatted with ₹
+- Limit to showing 20 rows with a "Show all" expander
+
+--- SECTION G: MARKET OPPORTUNITY MODULE ---
+Title: "MARKET OPPORTUNITY CALCULATOR"
+Subtitle: "Define your wealth target and see what growth rate you need to achieve it."
+
+This section has two parts: INPUT and OUTPUT.
+
+INPUT PART:
+Use st.columns(2) for two inputs side by side:
+    Left column: st.number_input for "Wealth Target (₹)"
+        - Default value: 500000 (₹5 lakhs)
+        - Minimum: 1000
+        - Step: 10000
+        - Format: "%d"
+    Right column: st.number_input for "Time Horizon (Years)"
+        - Default value: 3
+        - Minimum: 1
+        - Maximum: 30
+        - Step: 1
+
+Add a button: "Calculate My Required Return" (styled in gold)
+
+OUTPUT PART (shown after button click OR on page load with defaults):
+Use a try/except block around calculate_required_cagr() to handle the zero
+surplus edge case gracefully.
+
+If deployable_surplus > 0:
+    Call calculate_required_cagr(deployable_surplus, target_amount, years)
+    Call evaluate_market_viability(required_cagr, nifty_1yr_return)
+
+    Show 3 metric columns:
+    - "REQUIRED ANNUAL RETURN": e.g., "12.3%"
+    - "NIFTY 50 ACTUAL (1YR)": e.g., "15.2%"
+    - "STRATEGY VERDICT": e.g., "Conservative ✓" or "Aggressive ⚠️"
+
+    Show a Plotly gauge chart OR a comparison bar:
+    - A single horizontal bar showing "Required CAGR" vs "Nifty 50 Return"
+    - Color the Required CAGR bar in gold, the Nifty 50 bar in teal
+    - If required < nifty return: show a green checkmark and the viability message
+    - If required > nifty return: show an orange warning and the viability message
+
+    Show the viability_message text in a styled info box.
+
+If deployable_surplus == 0:
+    Show a red warning box:
+    "⚠️ Your deployable surplus is currently ₹0. Your incoming cash flow is
+     fully absorbed by obligations and buffers. You need to either reduce fixed
+     expenses or increase income before deploying capital."
+
+--- SECTION H: FOOTER ---
+A thin divider, then small muted text:
+"RetailQuant PoC | Data is processed locally | Not financial advice"
+"Built with Streamlit, Supabase, and OpenAI"
+
+================================================================================
+SECTION 12: PHASE 1 TESTS — Config & Database
+================================================================================
+
+FILE: tests/test_phase1_config_db.py
+
+Write all tests using the pytest framework. Import statements needed:
+    import pytest
+    import os
+    from unittest.mock import patch, MagicMock
+
+--- TEST 1: test_env_vars_present ---
+PURPOSE: Verify that all three required environment variables are set in the
+.env file and are not empty strings.
+
+LOGIC:
+1. Load the .env file using python-dotenv's load_dotenv().
+2. Assert that os.environ.get("SUPABASE_URL") is not None.
+3. Assert that os.environ.get("SUPABASE_URL") != "" (not an empty string).
+4. Assert that os.environ.get("SUPABASE_ANON_KEY") is not None.
+5. Assert that os.environ.get("SUPABASE_ANON_KEY") != "".
+6. Assert that os.environ.get("OPENAI_API_KEY") is not None.
+7. Assert that os.environ.get("OPENAI_API_KEY") != "".
+If any assertion fails, the test should print a helpful message explaining
+which key is missing.
+
+--- TEST 2: test_config_raises_on_missing_supabase_url ---
+PURPOSE: Verify config.py raises a proper error when SUPABASE_URL is missing.
+
+LOGIC:
+Use unittest.mock.patch.dict to temporarily remove SUPABASE_URL from
+os.environ, then try to import config.py (or call its initialization function)
+and assert that a ValueError is raised.
+Use pytest.raises(ValueError) context manager.
+Assert the error message contains the string "SUPABASE_URL".
+
+--- TEST 3: test_config_raises_on_missing_openai_key ---
+PURPOSE: Verify config.py raises a proper error when OPENAI_API_KEY is missing.
+LOGIC: Same pattern as TEST 2 but remove OPENAI_API_KEY from the environment.
+Assert that ValueError is raised and message contains "OPENAI_API_KEY".
+
+--- TEST 4: test_supabase_client_connects ---
+PURPOSE: Verify that the Supabase client object can be created successfully
+with real credentials (this test requires a real .env file to pass).
+
+LOGIC:
+1. Import supabase_client from config.
+2. Assert that supabase_client is not None.
+3. Attempt to execute: supabase_client.table("users").select("*").limit(1).execute()
+4. Assert that the response object is not None.
+5. Assert that the response does not have an error (check response.data is not None
+   or the call does not raise an exception).
+
+Mark this test with @pytest.mark.integration so it can be skipped in offline
+environments using: pytest -m "not integration"
+
+--- TEST 5: test_supabase_write_and_read ---
+PURPOSE: Verify we can write a test record to Supabase and read it back.
+
+LOGIC:
+1. Import supabase_client from config.
+2. Insert a test user: {"name": "TestUser_Pytest", "target_goal_amount": 100000,
+   "target_timeframe_years": 5}
+3. Assert the insert response has data and no error.
+4. Extract the inserted user's ID from the response.
+5. Read it back: select from users where id = that ID.
+6. Assert the returned name is "TestUser_Pytest".
+7. Clean up: delete the test record using the ID.
+8. Assert the delete succeeded.
+
+Mark this test with @pytest.mark.integration.
+
+================================================================================
+SECTION 13: PHASE 2 TESTS — AI Parsing
+================================================================================
+
+FILE: tests/test_phase2_ai_parsing.py
+
+Import statements needed:
+    import pytest
+    import json
+    import pandas as pd
+    from unittest.mock import patch, MagicMock
+    from ai_parser import parse_single_transaction, parse_all_transactions
+    from data_ingestion import load_transactions
+
+--- TEST 1: test_llm_returns_valid_json_structure ---
+PURPOSE: Verify that parse_single_transaction() correctly parses an OpenAI
+response that contains valid JSON.
+
+LOGIC (using mocking — do NOT make a real API call):
+1. Use unittest.mock.patch to mock the openai client's
+   chat.completions.create method.
+2. Set the mock to return a fake response object where the message content is:
+   '{"clean_name": "Zomato", "category": "Food", "is_fixed_obligation": false}'
+3. Call parse_single_transaction("UPI/ZOMATO/FOOD/ORDER9182")
+4. Assert the result is a Python dictionary (not a string).
+5. Assert result["clean_name"] == "Zomato"
+6. Assert result["category"] == "Food"
+7. Assert result["is_fixed_obligation"] == False
+8. Assert isinstance(result["is_fixed_obligation"], bool) — it must be a bool,
+   not the string "false"
+
+--- TEST 2: test_fixed_obligation_flag_for_home_loan ---
+PURPOSE: Verify that a home loan EMI narration correctly gets is_fixed_obligation=True.
+
+LOGIC (using mocking):
+1. Mock the OpenAI response to return:
+   '{"clean_name": "HDFC Home Loan", "category": "Loan EMI", "is_fixed_obligation": true}'
+2. Call parse_single_transaction("NEFT/HDFC HOME LOAN EMI/JAN")
+3. Assert result["is_fixed_obligation"] == True
+4. Assert result["category"] == "Loan EMI"
+
+--- TEST 3: test_fixed_obligation_flag_for_rent ---
+PURPOSE: Verify that a rent payment narration correctly gets is_fixed_obligation=True.
+
+LOGIC (using mocking):
+1. Mock the OpenAI response to return:
+   '{"clean_name": "Rent", "category": "Rent", "is_fixed_obligation": true}'
+2. Call parse_single_transaction("RENT PAYMENT/OWNER KRISHNA/JAN")
+3. Assert result["is_fixed_obligation"] == True
+4. Assert result["category"] == "Rent"
+
+--- TEST 4: test_graceful_fallback_on_bad_json ---
+PURPOSE: Verify that if the OpenAI API returns malformed JSON (not valid JSON),
+the function returns the safe default dictionary instead of crashing.
+
+LOGIC (using mocking):
+1. Mock the OpenAI response to return a non-JSON string:
+   "Sorry, I cannot categorize this transaction."
+2. Call parse_single_transaction("SOME_WEIRD_NARRATION")
+3. Assert the result is still a dictionary (no exception raised).
+4. Assert result["category"] == "Other"
+5. Assert result["is_fixed_obligation"] == False
+6. Assert result["clean_name"] == "SOME_WEIRD_NARRATION" (uses raw input as fallback)
+
+--- TEST 5: test_graceful_fallback_on_api_exception ---
+PURPOSE: Verify that if the OpenAI API call raises an exception (network error,
+rate limit, etc.), the function returns the safe default instead of crashing.
+
+LOGIC (using mocking):
+1. Mock the OpenAI chat.completions.create to raise an Exception("API timeout")
+2. Call parse_single_transaction("UPI/TEST/TRANSACTION")
+3. Assert the result is still a dictionary.
+4. Assert result["category"] == "Other"
+5. No exception should propagate to the caller.
+
+--- TEST 6: test_parse_all_transactions_adds_columns ---
+PURPOSE: Verify that parse_all_transactions() adds the three required columns
+to the DataFrame.
+
+LOGIC (using mocking):
+1. Load the mock CSV using load_transactions("mock_transactions.csv").
+   Take only the first 3 rows to keep the test fast.
+2. Mock parse_single_transaction to return a fixed result for every call:
+   {"clean_name": "Test", "category": "Food", "is_fixed_obligation": False}
+3. Call parse_all_transactions(df_3_rows) with the mock active.
+4. Assert the result DataFrame has a "clean_name" column.
+5. Assert the result DataFrame has a "category" column.
+6. Assert the result DataFrame has a "is_fixed_obligation" column.
+7. Assert the length of the result DataFrame is 3 (no rows dropped).
+
+================================================================================
+SECTION 14: PHASE 3 TESTS — Surplus Math Engine
+================================================================================
+
+FILE: tests/test_phase3_calculators.py
+
+Import statements needed:
+    import pytest
+    import pandas as pd
+    import numpy as np
+    from datetime import datetime, timedelta
+    from calculators import calculate_dynamic_surplus, format_inr
+
+--- SETUP: Create a reusable mock DataFrame ---
+Write a pytest fixture called "mock_transaction_df" that returns a manually
+constructed Pandas DataFrame. This DataFrame represents a controlled scenario:
+
+    Scenario parameters:
+    - 1 deposit of ₹1,00,000 (salary, not outflow)
+    - Rent: ₹15,000/month × 3 months = ₹45,000 (fixed, outflow)
+    - Home Loan EMI: ₹18,000/month × 3 months = ₹54,000 (fixed, outflow)
+    - Food spending: ₹1,500/month × 3 months = ₹4,500 (variable, outflow)
+    - Shopping: ₹3,000/month × 3 months = ₹9,000 (variable, outflow)
+    - The DataFrame covers 3 months of data (90 days)
+
+    Expected calculation (approximately, for assertions):
+    current_balance = 100000 - 45000 - 54000 - 4500 - 9000 = -12500
+    Wait — this tests with a scenario where balance is lower than obligations.
+    Use a higher deposit for the main test fixture.
+
+    REVISED SCENARIO:
+    - 3 salary deposits of ₹85,000 each = ₹2,55,000 total deposits
+    - Rent: ₹15,000 × 3 = ₹45,000
+    - Home Loan EMI: ₹18,000 × 3 = ₹54,000
+    - Food (variable): ₹1,500/month (total ₹4,500)
+    - Shopping (variable): ₹1,500/month (total ₹4,500)
+
+    current_balance = 255000 - (45000 + 54000 + 4500 + 4500) = 147000
+
+    Expected Deployable Surplus:
+    fixed_obligations = (15000 + 18000) = 33000 per month
+    variable_avg = (4500 + 4500) / 3 = 3000 per month
+    variable_buffer = 3000 * 1.15 = 3450
+    emergency_fund = 25000
+    surplus = 147000 - 33000 - 3450 - 25000 = 85550
+
+--- TEST 1: test_current_balance_calculation ---
+PURPOSE: Verify that the current balance is calculated correctly as
+sum(deposits) - sum(withdrawals).
+
+LOGIC:
+1. Use the mock_transaction_df fixture.
+2. Call calculate_dynamic_surplus(df).
+3. Assert result["current_balance"] == 147000.0 (within floating point tolerance
+   of 0.01, use pytest.approx(147000.0, abs=0.01))
+
+--- TEST 2: test_fixed_obligations_calculation ---
+PURPOSE: Verify that fixed monthly obligations are correctly identified and summed.
+
+LOGIC:
+1. Use the mock_transaction_df fixture.
+2. Call calculate_dynamic_surplus(df).
+3. Assert result["fixed_obligations_next_30_days"] == pytest.approx(33000.0, abs=0.01)
+   (Rent ₹15,000 + EMI ₹18,000 = ₹33,000 per month)
+
+--- TEST 3: test_variable_buffer_with_15_percent ---
+PURPOSE: Verify that the variable expense buffer includes the 15% safety margin.
+
+LOGIC:
+1. Use the mock_transaction_df fixture.
+2. Call calculate_dynamic_surplus(df).
+3. Average monthly variable spend = (1500 + 1500) = 3000
+4. Expected buffer = 3000 * 1.15 = 3450
+5. Assert result["variable_expense_buffer"] == pytest.approx(3450.0, abs=0.01)
+
+--- TEST 4: test_deployable_surplus_full_formula ---
+PURPOSE: Verify the complete surplus calculation matches the expected output.
+
+LOGIC:
+1. Use the mock_transaction_df fixture.
+2. Call calculate_dynamic_surplus(df).
+3. Assert result["deployable_surplus"] == pytest.approx(85550.0, abs=1.0)
+   (current_balance 147000 - fixed 33000 - variable buffer 3450 - emergency 25000)
+4. Assert result["emergency_fund"] == 25000
+5. Assert result["is_surplus_zero"] == False
+
+--- TEST 5: test_surplus_cannot_be_negative ---
+PURPOSE: Verify that even when obligations exceed balance, surplus floors at 0.
+
+LOGIC:
+1. Create a NEW simple DataFrame (not the fixture) where:
+   - Total deposits: ₹10,000
+   - Rent (fixed): ₹20,000/month (clearly exceeds balance)
+   - No variable spending
+2. Call calculate_dynamic_surplus(df).
+3. Assert result["deployable_surplus"] == 0.0
+4. Assert result["is_surplus_zero"] == True
+
+--- TEST 6: test_breakdown_dict_is_populated ---
+PURPOSE: Verify the breakdown dictionary contains the right keys and non-empty data.
+
+LOGIC:
+1. Use the mock_transaction_df fixture.
+2. Call calculate_dynamic_surplus(df).
+3. Assert "breakdown" is in the result.
+4. Assert "fixed_items" is in result["breakdown"].
+5. Assert "variable_categories" is in result["breakdown"].
+6. Assert len(result["breakdown"]["fixed_items"]) >= 1.
+7. Assert len(result["breakdown"]["variable_categories"]) >= 1.
+
+--- TEST 7: test_format_inr ---
+PURPOSE: Verify that the INR formatter produces correct Indian-style number format.
+
+LOGIC:
+1. Call format_inr(100000) → Assert the result contains "1,00,000"
+2. Call format_inr(1500.75) → Assert the result contains "1,500.75"
+3. Call format_inr(0) → Assert the result contains "0"
+4. Assert all results start with "₹" symbol.
+
+================================================================================
+SECTION 15: PHASE 4 TESTS — Market Logic
+================================================================================
+
+FILE: tests/test_phase4_market.py
+
+Import statements needed:
+    import pytest
+    import pandas as pd
+    import numpy as np
+    from unittest.mock import patch, MagicMock
+    from market_routing import (
+        fetch_nifty50_1year_data,
+        calculate_nifty50_1year_return,
+        calculate_required_cagr,
+        evaluate_market_viability
+    )
+
+--- TEST 1: test_cagr_double_in_7_years ---
+PURPOSE: Verify the CAGR formula is mathematically correct.
+
+LOGIC:
+1. Call calculate_required_cagr(current_surplus=100000, target_amount=200000, years=7)
+2. The correct answer is: (200000/100000)^(1/7) - 1 = 2^(1/7) - 1 ≈ 0.10409
+3. Assert result == pytest.approx(0.10409, abs=0.001)
+4. Assert the result is roughly 10.4% (10% < result < 11%)
+
+--- TEST 2: test_cagr_triple_in_5_years ---
+PURPOSE: Verify CAGR for a different scenario.
+
+LOGIC:
+1. Call calculate_required_cagr(current_surplus=100000, target_amount=300000, years=5)
+2. Correct answer: (3)^(1/5) - 1 ≈ 0.2457 (about 24.57%)
+3. Assert result == pytest.approx(0.2457, abs=0.001)
+
+--- TEST 3: test_cagr_raises_on_zero_surplus ---
+PURPOSE: Verify that CAGR raises a ValueError when surplus is 0 or negative.
+
+LOGIC:
+1. Use pytest.raises(ValueError) to assert that
+   calculate_required_cagr(0, 500000, 5) raises ValueError.
+2. Use pytest.raises(ValueError) to assert that
+   calculate_required_cagr(-5000, 500000, 5) raises ValueError.
+3. Assert the error message contains the word "surplus".
+
+--- TEST 4: test_cagr_raises_on_zero_years ---
+PURPOSE: Verify that CAGR raises a ValueError when years is 0 or negative.
+
+LOGIC:
+1. Use pytest.raises(ValueError) to assert that
+   calculate_required_cagr(100000, 500000, 0) raises ValueError.
+2. Assert the error message mentions "time horizon".
+
+--- TEST 5: test_cagr_returns_zero_when_target_already_met ---
+PURPOSE: Verify that if target <= current surplus, no growth is needed.
+
+LOGIC:
+1. Call calculate_required_cagr(current_surplus=500000, target_amount=300000, years=3)
+2. Assert the result == 0.0 (target already exceeded, no growth needed)
+
+--- TEST 6: test_nifty_fetch_returns_dataframe ---
+PURPOSE: Verify that the Nifty 50 fetch function returns a valid DataFrame
+with a "Close" column. (This test uses mocking to avoid a real internet call.)
+
+LOGIC:
+1. Use unittest.mock.patch to mock yfinance.download.
+2. Make the mock return a DataFrame with a DatetimeIndex and a "Close" column
+   containing [14000.0, 14500.0, 15000.0, 15500.0, 16000.0] with matching dates.
+3. Call fetch_nifty50_1year_data().
+4. Assert the result is a pandas DataFrame.
+5. Assert "Close" in result.columns.
+6. Assert len(result) == 5.
+
+--- TEST 7: test_nifty_1year_return_calculation ---
+PURPOSE: Verify that the 1-year return is calculated correctly from the DataFrame.
+
+LOGIC:
+1. Create a mock DataFrame with "Close" column: first value = 14000, last = 16000.
+2. Call calculate_nifty50_1year_return(mock_df).
+3. Expected return: (16000 - 14000) / 14000 = 0.14285... (approximately 14.3%)
+4. Assert result == pytest.approx(0.1428, abs=0.001)
+
+--- TEST 8: test_evaluate_viability_conservative ---
+PURPOSE: Verify viability evaluation when required CAGR is below Nifty return.
+
+LOGIC:
+1. Call evaluate_market_viability(required_cagr=0.10, nifty_1yr_return=0.15)
+2. Assert result["is_index_viable"] == True
+3. Assert result["viability_label"] == "Conservative"
+4. Assert "index fund" in result["viability_message"].lower()
+
+--- TEST 9: test_evaluate_viability_moderate ---
+PURPOSE: Verify viability when required CAGR is above Nifty but below 18%.
+
+LOGIC:
+1. Call evaluate_market_viability(required_cagr=0.17, nifty_1yr_return=0.15)
+2. Assert result["is_index_viable"] == False
+3. Assert result["viability_label"] == "Moderate"
+
+--- TEST 10: test_evaluate_viability_aggressive ---
+PURPOSE: Verify viability when required CAGR is above 18%.
+
+LOGIC:
+1. Call evaluate_market_viability(required_cagr=0.25, nifty_1yr_return=0.15)
+2. Assert result["is_index_viable"] == False
+3. Assert result["viability_label"] == "Aggressive"
+4. Assert "risk" in result["viability_message"].lower()
+
+================================================================================
+SECTION 16: PHASE 5 INTEGRATION TESTS — End to End
+================================================================================
+
+FILE: tests/test_phase5_integration.py
+
+PURPOSE:
+These tests verify that all the modules work together correctly as a pipeline.
+They test the full flow from CSV → AI parsing → Math → Market viability.
+
+Import statements needed:
+    import pytest
+    import pandas as pd
+    from unittest.mock import patch, MagicMock
+    from data_ingestion import load_transactions, get_summary_stats
+    from ai_parser import parse_all_transactions
+    from calculators import calculate_dynamic_surplus
+    from market_routing import calculate_required_cagr, evaluate_market_viability
+
+--- TEST 1: test_csv_loads_correctly ---
+PURPOSE: Verify the mock CSV loads and has the expected structure.
+
+LOGIC:
+1. Call load_transactions("mock_transactions.csv").
+2. Assert the result is a pandas DataFrame.
+3. Assert "raw_description" in df.columns.
+4. Assert "amount" in df.columns.
+5. Assert "is_outflow" in df.columns.
+6. Assert "Date" in df.columns.
+7. Assert len(df) >= 40 (the mock CSV has ~50 rows).
+8. Assert df["amount"].dtype in [float, "float64"] (amounts are numeric).
+9. Assert df["is_outflow"].dtype == bool (is_outflow is boolean).
+
+--- TEST 2: test_summary_stats_values ---
+PURPOSE: Verify that summary stats from the mock CSV are roughly correct.
+
+LOGIC:
+1. Call load_transactions("mock_transactions.csv").
+2. Call get_summary_stats(df).
+3. Assert "total_rows" in stats.
+4. Assert "total_deposits" in stats.
+5. Assert "total_withdrawals" in stats.
+6. Assert stats["total_deposits"] > 200000 (the mock CSV has 3 salary credits of ₹85k each).
+7. Assert stats["total_withdrawals"] > 50000 (multiple months of spending).
+8. Assert stats["date_range_start"] == "2024-01-01"
+9. Assert stats["date_range_end"] == "2024-03-28"
+
+--- TEST 3: test_full_pipeline_produces_surplus ---
+PURPOSE: Run the entire pipeline (with mocked AI) and verify a surplus is produced.
+
+LOGIC (with mocked AI to avoid real API calls):
+1. Call load_transactions("mock_transactions.csv").
+2. Mock parse_single_transaction to return different results based on the narration:
+   - If "LOAN EMI" in description: return {"clean_name": "Loan EMI", "category": "Loan EMI", "is_fixed_obligation": True}
+   - If "RENT" in description: return {"clean_name": "Rent", "category": "Rent", "is_fixed_obligation": True}
+   - If "SALARY" in description: return {"clean_name": "Salary", "category": "Salary", "is_fixed_obligation": False}
+   - Otherwise: return {"clean_name": "Variable", "category": "Food", "is_fixed_obligation": False}
+3. Call parse_all_transactions(df).
+4. Assert enriched_df has "clean_name", "category", "is_fixed_obligation" columns.
+5. Call calculate_dynamic_surplus(enriched_df).
+6. Assert result["current_balance"] > 0.
+7. Assert result["fixed_obligations_next_30_days"] > 0 (we expect rent + EMI to be identified).
+8. Assert result["deployable_surplus"] >= 0 (never negative).
+9. Assert "breakdown" in result.
+
+--- TEST 4: test_market_module_end_to_end ---
+PURPOSE: Verify the market module works with realistic surplus values.
+
+LOGIC:
+1. Use a hardcoded surplus of ₹85,000 (realistic from mock data).
+2. Call calculate_required_cagr(85000, 500000, 5).
+3. Assert result is a float between 0 and 1 (between 0% and 100%).
+4. Mock fetch_nifty50_1year_data() to return a DataFrame with first Close = 14000,
+   last Close = 16000 (14.3% return).
+5. Call calculate_nifty50_1year_return(mock_nifty_df).
+6. Call evaluate_market_viability(required_cagr, 0.143).
+7. Assert "viability_label" in result.
+8. Assert "viability_message" in result.
+9. Assert isinstance(result["is_index_viable"], bool).
+
+--- TEST 5: test_zero_surplus_does_not_crash_market_module ---
+PURPOSE: Verify that when surplus is 0, the market module handles it gracefully.
+
+LOGIC:
+1. Try to call calculate_required_cagr(0, 500000, 5).
+2. Assert it raises a ValueError (this is the expected behavior, not a crash).
+3. In the application (app.py), this should be caught with try/except and a
+   user-friendly message should be shown instead.
+
+--- TEST 6: test_all_categories_are_valid ---
+PURPOSE: Verify that the AI parser never produces an invalid category string.
+
+LOGIC (using mocking):
+1. Valid categories list:
+   ["Food", "Groceries", "Transport", "Shopping", "Entertainment",
+    "Utilities", "Rent", "Loan EMI", "Salary", "Investment", "Other"]
+2. Load the mock CSV and take 5 rows.
+3. Mock parse_single_transaction to return categories from the valid list.
+4. Call parse_all_transactions(df_5_rows).
+5. Assert every value in enriched_df["category"] is in the valid categories list.
+
+--- TEST 7: test_inr_formatting_in_pipeline ---
+PURPOSE: Verify that the INR formatter works correctly for all realistic outputs.
+
+LOGIC:
+1. from calculators import format_inr
+2. Test values and expected outputs:
+   - format_inr(85550) → should contain "85,550"
+   - format_inr(1000000) → should contain "10,00,000" (Indian lakh format)
+   - format_inr(25000) → should contain "25,000"
+   - format_inr(0) → should contain "0"
+   - All outputs should start with "₹"
+
+================================================================================
+SECTION 17: RUNNING EVERYTHING — COMMANDS FOR THE AGENT
+================================================================================
+
+After all files are created, the agent should help the user run the following
+commands in this order:
+
+STEP 1 — INSTALL DEPENDENCIES:
+    pip install -r requirements.txt
+
+STEP 2 — SET UP THE DATABASE (run this and follow the printed instructions):
+    python db_setup.py
+
+STEP 3 — TEST YOUR CONFIGURATION (run only Phase 1 non-integration tests first):
+    pytest tests/test_phase1_config_db.py -v -m "not integration"
+
+STEP 4 — TEST THE DATA LOADING:
+    pytest tests/test_phase2_ai_parsing.py -v
+
+STEP 5 — TEST THE MATH ENGINE:
+    pytest tests/test_phase3_calculators.py -v
+
+STEP 6 — TEST THE MARKET MODULE:
+    pytest tests/test_phase4_market.py -v
+
+STEP 7 — RUN INTEGRATION TESTS:
+    pytest tests/test_phase5_integration.py -v
+
+STEP 8 — RUN ALL TESTS TOGETHER:
+    pytest tests/ -v --tb=short
+
+STEP 9 — LAUNCH THE DASHBOARD:
+    streamlit run app.py
+
+STEP 10 — RUN INTEGRATION TESTS (requires real .env with valid keys):
+    pytest tests/ -v -m integration
+
+================================================================================
+SECTION 18: COMMON ERRORS & HOW TO FIX THEM
+================================================================================
+
+ERROR: "ModuleNotFoundError: No module named 'supabase'"
+FIX: Run "pip install -r requirements.txt" again. Make sure you are in the
+correct folder (the retailquant root folder) when running pip.
+
+ERROR: "ValueError: SUPABASE_URL is missing from your .env file"
+FIX: Open your .env file and make sure SUPABASE_URL is present and has a real
+value (not placeholder text like "paste_here").
+
+ERROR: "openai.AuthenticationError: Incorrect API key provided"
+FIX: Your OPENAI_API_KEY in the .env file is wrong or expired. Go to
+https://platform.openai.com/api-keys to get a new one.
+
+ERROR: "ConnectionError: Could not fetch Nifty 50 data"
+FIX: You are offline or yfinance is being blocked. Check your internet
+connection. The tests for market data use mocking and should pass offline.
+
+ERROR: "FileNotFoundError: Cannot find transaction file at: mock_transactions.csv"
+FIX: Make sure mock_transactions.csv is in the root project folder (same level
+as app.py). The tests assume you are running pytest from the root folder.
+
+ERROR: Tests fail with "assert 85550.0 == pytest.approx(85550.0)" when they
+should pass.
+FIX: Your mock DataFrame in the test fixture might have slightly different
+amounts. Recalculate the expected value based on your exact fixture data and
+update the assertion.
+
+================================================================================
+SECTION 19: WHAT "DONE" LOOKS LIKE
+================================================================================
+
+The MVP is complete when ALL of the following are true:
+
+✓ All 7 test files exist in the tests/ directory.
+✓ pytest tests/ -v shows ALL tests passing (or only real-API integration
+  tests being skipped with -m "not integration").
+✓ streamlit run app.py opens a browser window without errors.
+✓ The dashboard shows 4 KPI cards at the top.
+✓ The liquidity breakdown chart renders with real data from the mock CSV.
+✓ The transaction table shows AI-categorized rows.
+✓ The market module accepts a wealth target input and shows a Required CAGR.
+✓ Uploading a real bank CSV (in the Date/Narration/Withdrawal/Deposit format)
+  updates all numbers on the dashboard.
+✓ The deployable surplus never shows a negative value.
+✓ The app runs without any Python errors in the terminal.
+
+================================================================================
+END OF DOCUMENT
+================================================================================
+Total estimated lines of production code: ~800-1000 lines
+Total estimated lines of test code: ~500-600 lines
+Estimated build time for an AI agent: 45-90 minutes

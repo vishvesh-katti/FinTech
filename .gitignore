@@ -1,0 +1,26 @@
+# Secret keys — NEVER commit this
+.env
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment folder
+venv/
+env/
+.venv/
+
+# Editor folders
+.vscode/
+.idea/
+.cursor/
+
+# OS junk files
+.DS_Store
+Thumbs.db
+
+# Test coverage reports
+.coverage
+htmlcov/
+.pytest_cache/

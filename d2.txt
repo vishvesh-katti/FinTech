@@ -1,0 +1,45 @@
+# BEGINNER'S GUIDE: Getting Supabase Keys & Setting up a .env File
+
+## Phase 1: Creating Your Supabase Account and Project
+*Think of Supabase as renting an empty warehouse on the internet where you will store all your transaction data.*
+
+1. **Go to the Website:** Open your web browser and go to `https://supabase.com/`.
+2. **Sign Up:** Click the green "Start your project" or "Sign Up" button in the top right corner. 
+3. **Use GitHub (Recommended):** If you have a GitHub account, click "Continue with GitHub". If not, just use your standard email and create a strong password.
+4. **Create a Project:** Once you are logged in, you will see a dashboard. Click the green button that says **"New Project"**.
+5. **Fill in Project Details:**
+   * **Organization:** It might ask you to create an organization first. Just name it your name (e.g., "Vishvesh's Org") or "RetailQuant".
+   * **Name:** Name the project "RetailQuant-PoC" (or whatever you like).
+   * **Database Password:** Click the "Generate a password" button. **Crucial:** Copy this password and paste it somewhere safe (like a notepad) for right now. You won't need it for the `.env` file today, but you will need it later.
+   * **Region:** Select a server region closest to you (e.g., "South Asia (Mumbai)" since you are in India).
+6. **Wait:** Click "Create new project". It will take about 2 to 3 minutes for Supabase to build your database. Grab a glass of water.
+
+---
+
+## Phase 2: Finding Your URL and ANON KEY
+*Now that the warehouse is built, we need to get the address and the entry code.*
+
+1. **Go to Settings:** Once your project is ready, look at the very bottom of the dark menu bar on the left side of your screen. Click the **Gear Icon** (Settings).
+2. **Go to API:** In the new menu that appears next to it, click on **"API"**.
+3. **Find the URL:** 
+   * Look for a section titled **"Project URL"**.
+   * You will see a web address that looks something like this: `https://abcdefghijklmnop.supabase.co`.
+   * Click the little "Copy" button next to it.
+4. **Find the ANON KEY:**
+   * Right below the URL, look for a section titled **"Project API keys"**.
+   * You will see a long, random string of text that has a tag next to it saying `anon` and `public`.
+   * Click the "Copy" button next to this long string. 
+
+---
+
+## Phase 3: Creating the .env File in Your Editor
+*Now we put those keys into your secret file inside your code editor (Cursor/Windsurf/VS Code).*
+
+1. **Open Your Project:** Open your code editor and make sure you are in your project's main folder.
+2. **Create the File:** Look at your file explorer (usually on the left). Right-click in the empty space and select **"New File"**.
+3. **Name it EXACTLY:** Name the file `.env` (just a period, followed by the letters e-n-v). Do not name it `keys.env` or `.env.txt`. Just `.env`.
+4. **Paste Your Keys:** Open that new `.env` file and type the following, replacing the bracketed text with the actual things you just copied:
+```text
+SUPABASE_URL="paste_your_project_url_here"
+SUPABASE_ANON_KEY="paste_your_long_anon_key_here"
+OPENAI_API_KEY="we_will_add_this_later"

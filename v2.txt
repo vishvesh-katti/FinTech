@@ -1,0 +1,1391 @@
+================================================================================
+         RETAILQUANT PRO — COMPLETE MVP SPECIFICATION v2.0
+         Institutional-Grade Personal Finance Intelligence for Urban India
+================================================================================
+DOCUMENT VERSION : 2.0 (Remediation-Integrated, Production-Ready Blueprint)
+LAST UPDATED     : May 2026
+AUTHOR NOTE      : Synthesises the original PRD, Workflow v2, and Remediation Plan.
+                   All bugs and UX failures from the PoC are resolved here.
+                   Market data spec upgraded to 2-Year / 1-Hour (2Y/1H) granularity.
+TARGET SYSTEM    : RetailQuant Pro — Streamlit MVP
+================================================================================
+
+TABLE OF CONTENTS
+──────────────────────────────────────────────────────────────────────────────
+  0.  Philosophy & Guiding Principles
+  1.  System Architecture
+  2.  Stage 1  — Data Ingestion & Validation
+  3.  Stage 2  — Transaction Intelligence & Behavioral Profiling
+  4.  Stage 3  — Financial Health Score & Surplus Engineering
+  5.  Stage 4  — Goal Architecture & Risk Profiling
+  6.  Stage 5  — Market Intelligence & Portfolio Engine (2Y/1H Core)
+  7.  Stage 6  — Stochastic Simulation, Stress Testing & Action Plan
+  8.  Data Contracts & JSON Schemas
+  9.  UI/UX Design System
+  10. Codebase Map & File Structure
+  11. Sprint Roadmap
+  12. Performance Targets
+  13. Compliance & Disclaimers
+================================================================================
+
+
+================================================================================
+0.0  PHILOSOPHY & GUIDING PRINCIPLES
+================================================================================
+
+RetailQuant Pro applies institutional quantitative frameworks to the retail
+Indian user's personal cash flow. The market is crowded with passive aggregators
+(INDmoney, Walnut) that show users what already happened. RetailQuant Pro shows
+users what will happen, under what probabilities, and exactly how to change it.
+
+FOUR CORE COMMITMENTS (derived from Remediation Plan):
+
+  1. NO DEAD ENDS — Every failure state (0% probability, impossible goal,
+     API failure) must resolve into a guided alternative action. The UI
+     never leaves a user stranded with a number and no path forward.
+
+  2. RUPEE-ANCHORED LANGUAGE — All risk, returns, and projections are
+     expressed in actual ₹ amounts tied to the user's parsed data.
+     Abstract percentages (1-5 scales, "Debt allocation") are always
+     accompanied by plain-English translations.
+
+  3. HONEST MATH — Deployable surplus is calculated conservatively with
+     all lock categories. Projections use GBM with jump diffusion, not
+     straight-line compounding. The engine will tell the user a plan is
+     broken before suggesting they open a brokerage account.
+
+  4. GRACEFUL DEGRADATION — Every API call (yfinance, Claude, RBI) has
+     a fallback. A stale data warning is always preferable to a crash or
+     a fabricated error message shown to the user.
+
+TARGET DEMOGRAPHIC:
+  Urban Indian professionals, age 25–45, income ₹5L–₹50L annually.
+  Pain points: cash drag, subscription bloat, poorly constructed MF
+  portfolios, and zero downside protection during market corrections.
+
+================================================================================
+1.0  SYSTEM ARCHITECTURE
+================================================================================
+
+DESIGN PATTERN: Decoupled 6-stage pipeline. Each stage computes independently
+and passes a clean schema to the next. Heavy quantitative work (optimisation,
+Monte Carlo) is isolated in backend modules, never blocking the UI thread.
+
+1.1  FRONTEND LAYER
+  - Framework       : Streamlit 1.35+
+  - Theme           : "Institutional Dark" — custom CSS injected globally
+                      (Navy #0A0F1E, Electric Blue #00D4FF, Gold #FFD700,
+                       Coral #FF6B6B for warnings, Green #00FF88 for positive)
+  - Charting        : Plotly Express + Graph Objects exclusively.
+                      No default Streamlit charts anywhere.
+  - Layout          : Custom sidebar with 6-stage progress tracker.
+                      Expandable sections for information density management.
+                      Glassmorphism metric cards. Animated number counters.
+  - State           : st.session_state — all user data ephemeral in-session.
+
+1.2  BACKEND & DATA PROCESSING
+  - Language        : Python 3.10+
+  - Data            : pandas, numpy, scipy
+  - Market Data     : yfinance (primary, 2Y/1H granularity — see §6)
+                      Local CSV fallback cache for all 12 assets.
+  - AI Engine       : Anthropic Claude 3.5 Haiku API (categorisation only)
+  - Optimisation    : scipy.optimize.minimize (Sharpe maximisation)
+  - Simulation      : NumPy vectorised GBM (10,000 paths)
+  - Caching         : @st.cache_data, TTL=4 hours for market data
+
+1.3  PRIVACY & SECURITY
+  - Ephemeral only  : No database. Session destroyed on tab close.
+  - PII Scrub       : Regex strips names, UPI IDs, account numbers before
+                      any string reaches the Claude API endpoint.
+  - No telemetry    : No analytics SDK. No third-party tracking.
+
+1.4  CODEBASE MAP
+
+  RetailQuantPro/
+  ├── app.py                      # Main Streamlit router + layout
+  ├── config.py                   # Constants: risk grids, tickers, benchmarks
+  ├── styles.css                  # Global dark theme + card CSS
+  │
+  ├── ingestion/
+  │   ├── data_loader.py          # CSV/PDF parsing, bank format detection
+  │   └── validator.py            # Integrity checks, Data Confidence Score
+  │
+  ├── analysis/
+  │   ├── ai_categoriser.py       # Claude API: batching, PII scrub, cache
+  │   ├── flow_analyser.py        # Stage 2 flow intelligence (6 sub-modules)
+  │   ├── behavioral_profiler.py  # Personality engine (6 types)
+  │   └── spending_optimiser.py   # Rule-based savings suggestions
+  │
+  ├── finance/
+  │   ├── health_scorer.py        # 6-dimension Financial Health Score
+  │   └── surplus_calculator.py   # 5-lock Deployable Surplus engine
+  │
+  ├── goals/
+  │   ├── goal_manager.py         # Multi-goal setup, conflict detection
+  │   └── risk_profiler.py        # Psychometric questionnaire + profile
+  │
+  ├── market/
+  │   ├── data_fetcher.py         # yfinance 2Y/1H fetch + CSV fallback
+  │   ├── metrics_engine.py       # CAGR, Sharpe, VaR, Hurst, EMA
+  │   ├── portfolio_builder.py    # Allocation engine + Efficient Frontier
+  │   ├── denoiser.py             # Marchenko-Pastur eigenvalue clipping
+  │   └── regime_detector.py      # Hurst + EMA dual-adaptive signals
+  │
+  ├── projections/
+  │   ├── scenario_engine.py      # Bear/Base/Bull deterministic paths
+  │   ├── monte_carlo.py          # 10k GBM + Jump Diffusion vectorised
+  │   ├── resolution_engine.py    # What-If slider recalculator
+  │   └── action_planner.py       # Context-aware action plan generator
+  │
+  ├── ui/
+  │   ├── charts.py               # All Plotly chart functions (centralised)
+  │   ├── cards.py                # HTML metric card components
+  │   └── report_exporter.py      # PDF export via reportlab
+  │
+  └── data/
+      ├── benchmarks.json         # RBI urban spend benchmarks, peer cohorts
+      ├── fallback_prices/        # Local CSV files per ticker (2Y daily OHLCV)
+      └── merchant_cache.json     # Pre-mapped narration → category cache
+
+
+================================================================================
+2.0  STAGE 1 — DATA INGESTION & INTELLIGENT VALIDATION
+================================================================================
+
+2.1  SUPPORTED INPUT FORMATS
+  a) CSV  — Standard Indian bank exports (SBI, HDFC, ICICI, Axis, Kotak,
+             Yes Bank, IndusInd). Auto-detected via header heuristics.
+  b) PDF  — Bank statement PDFs parsed via pdfplumber with table extraction.
+  c) JSON — API-connected users (future). Validated against unified schema.
+
+2.2  COLUMN NORMALISATION ENGINE
+  Scans first 10 rows. Maps bank-specific headers to unified schema:
+    "Debit" / "DR" / "Withdrawal Amt" / "Debit Amount" → withdrawal
+    "Credit" / "CR" / "Deposit Amt" / "Credit Amount"  → deposit
+    "Narration" / "Description" / "Particulars"        → narration
+    "Value Date" / "Txn Date" / "Transaction Date"     → date
+    "Balance" / "Closing Balance" / "Avl Bal"          → balance
+
+  MERGED AMOUNT COLUMN HANDLING:
+  Some banks export a single "Amount" column with +/- signs. The loader
+  splits this into separate withdrawal/deposit columns automatically.
+
+  UNIFIED OUTPUT SCHEMA (12 columns):
+  [date, narration, withdrawal, deposit, balance, bank_name,
+   account_masked, statement_start, statement_end, currency,
+   is_duplicate_flag, outlier_flag]
+
+2.3  DATA INTEGRITY ENGINE
+  a) Duplicate Detection  : Same date + amount + narration within 24h window.
+  b) Balance Reconciliation: Rolling computed balance vs. stated balance.
+                             Discrepancy > ₹100 triggers a warning flag.
+  c) Temporal Gap Analysis : Flags gaps > 5 consecutive calendar days.
+                             Gaps > 30 days lower the Data Confidence Score.
+  d) Outlier Flagging      : Transactions > 3 standard deviations from the
+                             user's own mean flagged for manual review.
+  e) ATM/Cash Detection    : "ATM WDL" pattern isolated as "Untracked Spend."
+                             High ATM usage lowers Data Confidence Score.
+
+2.4  DATA CONFIDENCE SCORE (0–100)
+  Starts at 100. Deductions:
+    - Statement covers < 3 months              : −30 points
+    - Balance reconciliation discrepancy found : −15 points
+    - Temporal gap > 30 days found             : −10 points per gap (max −20)
+    - ATM cash withdrawals > 20% of outflows   : −15 points
+    - Duplicate transactions found             : −5 points per group
+
+  Displayed as a gauge to the user with explanation of each deduction.
+  Scores < 50 trigger a persistent banner: "Low data quality may reduce
+  projection accuracy. Consider uploading a longer or more complete statement."
+
+2.5  OUTPUT
+  Clean, normalised pandas DataFrame with 12 standardised columns.
+  Passed to Stage 2 via st.session_state["clean_df"].
+
+
+================================================================================
+3.0  STAGE 2 — TRANSACTION INTELLIGENCE & BEHAVIORAL PROFILING
+================================================================================
+
+REMEDIATION APPLIED: The PoC bug where all transactions defaulted to "Other /
+necessity" (resulting in 0% leakage score and a useless monolithic pie chart)
+is resolved by the hybrid architecture below. The pie chart is eliminated.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3A.  AI-POWERED TRANSACTION CATEGORISATION — HYBRID ARCHITECTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PHASE A — LOCAL CACHE LOOKUP (Cost: ₹0, handles ~65% of volume)
+  - Check narration against merchant_cache.json (pre-seeded with 500+
+    common Indian merchants: Swiggy, Zomato, Amazon, BSNL, HDFC EMI etc.)
+  - Regex pattern library (e.g., "*SWIGGY*", "UPI/9876*", "NEFT-SALARY*")
+  - TF-IDF similarity against cached narrations (threshold: cosine > 0.88)
+  - If confidence >= 0.88: assign category, skip API call. Cache the result.
+
+PHASE B — CLAUDE API ROUTING (Only for ambiguous transactions)
+  - Batch all unresolved narrations in groups of N=20.
+  - PII scrub before sending: strip names, UPI IDs, account numbers.
+  - System prompt forces JSON-only output (no preamble, no markdown fences).
+  - Retry logic: 3 attempts with exponential backoff (1s, 2s, 4s).
+  - On API failure after 3 retries: assign category="Uncategorised",
+    confidence=0.0. Do NOT crash. Show warning badge in UI.
+  - Cache every successful response to merchant_cache.json for this session.
+
+CLAUDE PROMPT SPECIFICATION (Phase B):
+  System: "You are a financial transaction categoriser for Indian bank
+  statements. Return ONLY valid JSON. No explanation, no markdown."
+
+  Output schema per transaction:
+  {
+    "tx_id"          : "row_042",
+    "clean_merchant" : "BigBasket",
+    "category"       : "Food & Dining",
+    "subcategory"    : "Grocery",
+    "necessity_flag" : "variable_necessary",
+    "spending_signal": "necessity",
+    "recurrence"     : "frequent",
+    "is_fixed"       : false,
+    "is_investment"  : false,
+    "confidence"     : 0.94
+  }
+
+  necessity_flag MUST be one of:
+    fixed_obligation | variable_necessary | discretionary | investment | income
+
+FULL CATEGORY TAXONOMY (10 top-level):
+  1.  HOUSING & UTILITIES      (Rent, EMI, Electricity, Gas, Internet, DTH)
+  2.  FOOD & DINING            (Grocery, Food Delivery, Restaurants, Dairy)
+  3.  TRANSPORTATION           (Fuel, Cabs, Metro, Vehicle EMI, Servicing)
+  4.  HEALTH & WELLNESS        (Insurance, Pharmacy, Doctors, Gym, Mental Health)
+  5.  ENTERTAINMENT & LIFESTYLE(OTT, Gaming, Cinema, Travel, Shopping)
+  6.  FINANCIAL OBLIGATIONS    (Loan EMIs, CC Bills, Insurance Premiums, SIPs)
+  7.  EDUCATION                (School Fees, Online Courses, Books, Certs)
+  8.  SOCIAL & FAMILY          (UPI to Family, Gifts, Donations, Religious)
+  9.  PROFESSIONAL             (Coworking, Subscriptions, Business, Tax)
+  10. SAVINGS & INCOME         (Salary, Freelance, Dividends, Rental, Interest)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3B.  CASH FLOW INTELLIGENCE — 6 FLOW ANALYSES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+REMEDIATION APPLIED: Static pie chart eliminated. Replaced with Sankey diagram
+(primary) + temporal heatmap (secondary).
+
+FLOW ANALYSIS 1 — SANKEY DIAGRAM (Primary Visual, replaces pie chart)
+  Nodes: Total Inflow → [Fixed / Variable / Discretionary] →
+         [Specific Subcategories] → [Deployed / Leaked / Saved]
+  Rendered via Plotly Sankey. Link widths proportional to ₹ amounts.
+  Tooltip on hover: category name + ₹ amount + % of total.
+
+FLOW ANALYSIS 2 — PROPORTIONAL SPEND vs. RBI BENCHMARKS
+  For each of 10 categories: user's % vs. national urban average.
+  Overspend flag (coral text) if user exceeds benchmark by > 20%.
+  Example: "Food Delivery: ₹7,200/mo (34% of spend) vs. 15% urban avg.
+  Excess: ~₹4,000/month = ₹48,000/year in recoverable capital."
+
+FLOW ANALYSIS 3 — FIXED / VARIABLE / DISCRETIONARY DECOMPOSITION
+  Leakage Score = Discretionary ÷ Total Outflow × 100
+  REMEDIATION: This was 0.0% in the PoC due to all txns being "necessity."
+  With the hybrid categoriser, this now correctly splits all three buckets.
+  Displayed prominently as a horizontal progress bar with colour bands.
+
+FLOW ANALYSIS 4 — TEMPORAL HEATMAP (GitHub-style contribution graph)
+  X-axis: Day of month (1–31). Y-axis: Day of week (Mon–Sun).
+  Cell colour intensity = daily spend amount.
+  Identifies: weekend lifestyle bloat, end-of-month cash crunch patterns,
+  salary-day splurges. Shown as Plotly Heatmap with custom dark theme.
+
+FLOW ANALYSIS 5 — MERCHANT INTELLIGENCE
+  Top 10 merchants by total spend (horizontal bar chart).
+  Merchant frequency matrix: amount vs. visit count (scatter plot).
+  Subscription Audit (REMEDIATION: upgraded from text string to table):
+    Interactive table with columns:
+    [Merchant | Monthly Cost | Annual Cost | Compounded 5-Year Opportunity Cost |
+     Last Used | Cancel?]
+    Compounded Opportunity Cost = monthly cost × ((1.12^5 - 1) / 0.12) × 12
+    (assumes 12% CAGR foregone on the freed capital)
+
+FLOW ANALYSIS 6 — INCOME STABILITY ANALYSIS
+  Salary regularity check (same day? same amount within ±5%?).
+  Side income detection (irregular credits not from known employer).
+  Income volatility score (coefficient of variation).
+  YoY income growth estimate if > 12 months of data present.
+  For freelancers: flag "High Income Volatility" and recommend a larger
+  emergency fund (6 months fixed expenses, not 3).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3C.  BEHAVIORAL PROFILING ENGINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+REMEDIATION APPLIED: Personality type now links directly to market mechanics
+and quantified cost-of-inaction, not just static text blocks.
+
+SIX PERSONALITY TYPES (rule-based classification from Stage 2 data):
+  1. The Accumulator       — savings rate > 35%, low discretionary spend
+  2. The Balancer          — savings 20–35%, consistent behaviour
+  3. The Lifestyle Inflator— income proxy rising, discretionary keeps pace
+  4. The Impulse Spender   — high spend variance, weekend spikes detected
+  5. The Debt Juggler      — EMI-to-income ratio > 35%
+  6. The Neglectful Saver  — good income, zero investment activity in txns
+
+FOR THE ACCUMULATOR (example of market-mechanics linkage):
+  REMEDIATION — "Cost of Idle Cash" module:
+  Calculate exact rupee erosion of uninvested cash balance over 12 months:
+    Inflation Cost = Cash Balance × ((1.065)^1 - 1) = ₹X lost in real value
+    Opportunity Cost vs. Liquid BeES (4.5% approx) = ₹Y left on table
+    Opportunity Cost vs. Nifty 50 (12Y avg CAGR) = ₹Z foregone
+  Shown as a comparison bar chart, reframing saved expenses as "alpha."
+
+FOR ALL TYPES:
+  - Behavioral insight card (what pattern the data shows)
+  - Specific, quantified blind-spot recommendations
+  - "One Habit Change" calculator: "If you redirect ₹X/month from
+    food delivery to a Nifty 50 index SIP for 10 years, you'd have ₹Y
+    (at 12% CAGR)." Runs a simple FV calculation, shown inline.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3D.  SPENDING OPTIMISATION SUGGESTIONS (Rule-based + Data-driven)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SAVINGS OPPORTUNITY LADDER (3 tiers, shown as an interactive accordion):
+  TIER 1 — Quick Wins (Zero lifestyle change)
+    Cancel subscriptions with 0 transactions in the last 60 days.
+    Example: "You haven't used Audible in 63 days. Cancel → ₹199/mo saved."
+    Total: ₹X/month unlocked. Shown at top.
+
+  TIER 2 — Medium Effort (Behaviour adjustment)
+    Food delivery reduction, OTT rotation, fuel optimisation.
+    Each suggestion includes a concrete ₹ saving estimate.
+
+  TIER 3 — High Effort (Structural change)
+    Loan refinancing opportunity, downgrading insurance to term plan, etc.
+    Includes estimated net monthly saving after factoring in costs.
+
+  TOTAL UNLOCKABLE SURPLUS prominently shown:
+    "Adopting all suggestions above frees ₹X/month — that's ₹Y additional
+    invested per year, compounding to ₹Z in 10 years at 12% CAGR."
+
+
+================================================================================
+4.0  STAGE 3 — FINANCIAL HEALTH SCORE & SURPLUS ENGINEERING
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4A.  FINANCIAL HEALTH SCORE (0–850, credit-score style)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SIX SCORING DIMENSIONS (weighted, totalling 100%):
+
+  1. SAVINGS RATE (25%)
+     Monthly savings ÷ Monthly income.
+     <10% → 0 pts | 10–20% → 150 pts | 20–35% → 175 pts | >35% → 212 pts
+
+  2. DEBT SERVICE RATIO (20%)
+     Total EMIs ÷ Monthly income.
+     <20% → 170 pts | 20–35% → 100 pts | >35% → 30 pts
+
+  3. EXPENSE DIVERSIFICATION (15%)
+     Herfindahl-Hirschman Index (HHI) on spending category percentages.
+     HHI = Σ(share_i²). Lower = more diversified = higher score.
+     HHI < 0.20 → full score. HHI > 0.50 → 0 pts (concentrated risk).
+
+  4. INCOME STABILITY (15%)
+     Coefficient of Variation (CV) of monthly income credits.
+     CV < 0.05 (very stable salary) → full score.
+     CV > 0.30 (freelancer with volatile income) → 0 pts.
+
+  5. INVESTMENT ACTIVITY (15%)
+     SIP/MF/investment transactions detected? Yes → full score.
+     No investment activity → 0 pts for this dimension.
+     Bonus: +10 pts if investment-to-income ratio > 15%.
+
+  6. EMERGENCY FUND ADEQUACY (10%)
+     Current estimated liquid balance vs. (3× to 6× monthly fixed expenses).
+     Fund ≥ 6 months → full 85 pts.
+     Fund 3–6 months → 50 pts.
+     Fund < 3 months → 0 pts.
+
+OUTPUT DISPLAY:
+  Circular Plotly gauge (0–850) with colour gradient.
+  Letter grade: A+ (750+) / A (650–749) / B (500–649) / C (350–499) / F (<350)
+  Score Improvement Roadmap: exactly 3 specific, data-driven steps to move
+  the score up by at least 50 points, e.g.:
+    "Start a ₹5,000/month SIP. This alone adds +127 points to Investment Activity."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4B.  DEPLOYABLE SURPLUS CALCULATION — 5-LOCK SYSTEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Formula:
+  DEPLOYABLE SURPLUS = Current Liquid Balance − (Lock A + Lock B + Lock C +
+                                                  Lock D + Lock E)
+
+LOCK A — Fixed Obligations Reserve (exact, from AI categorisation)
+  = Σ all transactions where is_fixed=true × 1 month buffer
+  Includes: rent, EMIs, insurance premiums, fixed subscriptions.
+
+LOCK B — Dynamic Variable Reserve (personalised, not flat 15%)
+  = Average monthly variable spend × (1 + CV_discretionary)
+  Where CV_discretionary = coefficient of variation of discretionary spend
+  over the statement period. High-volatility spenders get a larger buffer.
+  Minimum multiplier: 1.15. Maximum: 1.40.
+
+LOCK C — Emergency Fund (personalised, not static ₹25,000)
+  = 3× average monthly fixed expenses (minimum lock)
+  = 6× average monthly fixed expenses (recommended lock)
+  For freelancers (CV_income > 0.20): always use 6× figure.
+  Shown to user as a range, not a single number.
+
+LOCK D — Tax Liability Reserve
+  If self-employed signals detected (GST, professional receipts):
+    = Estimated advance tax installment (30% of net surplus, conservative)
+  If salaried with TDS detected: Lock D = 0.
+
+LOCK E — Short-Term Goal Reserve (user-defined)
+  User optionally tags upcoming large expenses (holiday, gadget, wedding).
+  These amounts are ring-fenced from investable capital.
+  Input: Free text + ₹ amount + timeline (months). Listed and editable.
+
+THREE SURPLUS VIEWS SHOWN SIDE-BY-SIDE:
+  Conservative : Uses 6-month emergency fund (Lock C at 6×)
+  Base         : Uses 3-month emergency fund (Lock C at 3×)
+  Optimistic   : Base surplus + estimated savings from Stage 2 Tier-1 wins
+
+All three values passed to Stage 4 as the deployable capital range.
+The Base figure is used as the primary input to the goal and optimiser.
+
+
+================================================================================
+5.0  STAGE 4 — GOAL ARCHITECTURE & RISK PROFILING
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5A.  MULTI-GOAL SETUP (up to 5 simultaneous goals)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+GOAL TYPES:
+  • Retirement Corpus    — long horizon, inflation-adjusted to real purchasing power
+  • Home Down Payment    — medium horizon, fixed nominal target
+  • Child's Education    — medium horizon, inflation-adjusted (education inflation ~8%)
+  • FIRE / Wealth Target — flexible horizon, user-defined
+  • Custom Goal          — user names it, sets amount and timeline
+
+FOR EACH GOAL (inputs):
+  - Target amount in ₹ (present value — see below)
+  - Time horizon in years
+  - Priority rank (1 = most critical)
+  - Deployment mode: Lump Sum / Monthly SIP / Hybrid
+
+NOMINAL VS. REAL TOGGLE (REMEDIATION):
+  REMEDIATION: Users misunderstand inflation. Goal input now has a toggle:
+    "Enter in Today's Rupees" (default) or "Enter in Future Rupees"
+  If "Today's Rupees" selected:
+    Nominal Target = PV × (1 + inflation)^N
+    Inflation rate used: 6.5% general, 8.0% for education goals.
+    Display: "₹50L today → ₹96.1L needed in 10 years at 6.5% inflation."
+  The engine always solves for the nominal (future) target.
+
+DYNAMIC FEASIBILITY GATING (REMEDIATION):
+  REMEDIATION: PoC allowed mathematically impossible goals with no warning.
+  As the user moves the Target / Horizon sliders, compute in real-time:
+    Required Monthly SIP = FV-solve(Target, Horizon, baseline_CAGR=10%)
+  If Required Monthly SIP > Base Deployable Surplus:
+    Show coral warning immediately:
+    "This plan requires ₹X/month but your surplus is only ₹Y/month.
+     Extend your timeline by Z years or reduce the target by ₹W."
+  User cannot proceed to Stage 5 without resolving this gating check.
+
+GOAL CONFLICT ANALYSIS (multi-goal):
+  If Σ(Required SIPs across all goals) > Base Deployable Surplus:
+    Highlight conflicting goals in coral.
+    Auto-suggest: defer lowest-priority goal by N years to make it feasible.
+    Show: "Deferring Goal 4 (Vacation) by 2 years resolves the conflict."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5B.  RISK PROFILING — RUPEE-ANCHORED PSYCHOMETRIC QUESTIONNAIRE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+REMEDIATION: Abstract 1–5 scale replaced. Questions are anchored to the
+user's actual parsed portfolio balance from Stage 3.
+
+10-QUESTION QUESTIONNAIRE (questions that reference user data shown in bold):
+
+  Q1. DRAWDOWN TOLERANCE (anchored to actual parsed balance)
+      "Your current invested capital is approximately ₹[parsed_balance].
+       If this dropped to ₹[0.80 × parsed_balance] during a market crash,
+       what would you do?"
+      Options: Buy more aggressively / Stay the course / Sell 25% /
+               Sell everything
+
+  Q2. INCOME DEPENDABILITY
+      "How stable is your monthly income?"
+      Options: Fixed salary + TDS / Salary with variable component /
+               Freelance/consulting / Business (highly variable)
+
+  Q3. FINANCIAL DEPENDENTS
+      "How many people depend on your income?"
+      Options: 0 / 1–2 / 3–4 / 5+
+
+  Q4. INVESTMENT EXPERIENCE
+      "How long have you been actively investing (excluding savings accounts)?"
+      Options: <1 year / 1–3 years / 3–7 years / >7 years
+
+  Q5. ILLIQUIDITY COMFORT
+      "Are you comfortable locking ₹[50% of surplus] for 5 years in an
+       instrument that cannot be sold early?"
+      Options: No, I need access / 1–2 years max / 3–5 years is fine /
+               5+ years, no problem
+
+  Q6. TIMELINE FLEXIBILITY
+      "If markets perform poorly for 3 years, can you wait longer to
+       reach your goal?"
+      Options: No, I have a hard deadline / 1 year extension possible /
+               2–3 years / Fully flexible
+
+  Q7. CAPITAL SOURCE
+      "Where is the capital you'll invest coming from?"
+      Options: Personal savings (built over time) / Lump sum windfall /
+               Inheritance / [Show warning if "Borrowed" — do not invest borrowed money]
+
+  Q8. TAX BRACKET
+      "What is your approximate annual income tax bracket?"
+      Options: Up to ₹7L (nil slab) / ₹7–15L (10–15% slab) /
+               ₹15–50L (20% slab) / >₹50L (30% slab)
+
+  Q9. EXISTING INSURANCE
+      "Do you have an active term life insurance policy?"
+      Options: Yes, adequate cover / Yes, but insufficient / No
+
+  Q10. LOSS AVERSION SCALE
+       "Imagine a coin flip: Heads = gain ₹1 Lakh. Tails = lose ₹50,000.
+        Would you take this bet?"
+       Options: Never / Only if odds improved / Yes / Seek bigger bets
+
+OUTPUT: One of 5 Risk Profiles:
+  1. Ultra-Conservative (MaxDD tolerance ~5%)
+  2. Conservative       (MaxDD tolerance ~10%)
+  3. Moderate           (MaxDD tolerance ~18%)
+  4. Growth             (MaxDD tolerance ~28%)
+  5. Aggressive         (MaxDD tolerance ~40%)
+
+MaxDD constraint is passed directly to the scipy portfolio optimiser in Stage 5.
+Risk profile also determines the base allocation grid (§6C Step 1).
+
+RISK-PROFILE SHORTFALL EXPLANATION (REMEDIATION):
+  If a conservative profile produces a large goal shortfall, do not just
+  display the gap. Inject an explanatory panel:
+  "Your Ultra-Conservative profile keeps volatility at ~3.1%, generating
+   ~6.9% CAGR. This creates a ₹[gap] shortfall against your ₹[target] goal.
+   To close this gap without changing your timeline, you have three options:
+   (1) Accept more equity risk (raises CAGR toward 10%), (2) Increase your
+   monthly SIP by ₹[amount], or (3) Extend your horizon by [N] years."
+  All three options are live-linked to the What-If sliders in Stage 6.
+
+
+================================================================================
+6.0  STAGE 5 — MARKET INTELLIGENCE & PORTFOLIO ENGINE
+================================================================================
+
+THIS IS THE CORE INTELLECTUAL PROPERTY OF THE APPLICATION.
+KEY UPGRADE: Data granularity changed from "5-year daily" to "2-Year / 1-Hour"
+(2Y/1H) via yfinance. This provides ~17,500 hourly bars per asset, enabling
+intraday regime signals, more responsive EMA crossovers, and accurate rolling
+volatility computation for Indian market hours.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6A.  MARKET DATA FETCH — 2Y/1H SPECIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FETCH COMMAND (data_fetcher.py):
+  ticker_obj = yf.Ticker(ticker)
+  df = ticker_obj.history(period="2y", interval="1h")
+
+WHY 2Y/1H:
+  • 2 years captures at least one full market cycle (bull + correction).
+  • 1-hour bars give sufficient resolution for EMA crossover signals and
+    intraday volatility patterns without the noise of 1-minute data.
+  • yfinance supports 1h interval up to 2 years reliably (730 days max
+    for hourly; beyond that falls back to daily auto).
+  • For quantitative metrics requiring daily close (CAGR, MaxDD, Sharpe),
+    hourly data is resampled to daily OHLCV using:
+      daily_df = hourly_df.resample('B').agg({'Open':'first','High':'max',
+                  'Low':'min','Close':'last','Volume':'sum'}).dropna()
+
+CACHING:
+  @st.cache_data(ttl=14400)  # 4-hour cache
+  All 12 assets fetched in a single parallelised batch at stage entry.
+  On fetch failure: load from data/fallback_prices/<ticker>_2Y_1H.csv.
+  Fallback CSV is updated manually and shipped with the app.
+
+GRACEFUL DEGRADATION (REMEDIATION):
+  If live fetch fails AND fallback CSV is stale (> 7 days old):
+    Show a muted amber badge: "Using cached data from [date]. Live signals
+    unavailable." Do NOT show "UNKNOWN (Insufficient data for 200 DMA)".
+    Regime card is hidden. Allocation proceeds without regime overlay.
+    Portfolio construction uses base risk-profile allocation only.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6B.  ASSET UNIVERSE (12 assets, 6 classes)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CLASS 1 — INDIAN EQUITY
+  ^NSEI              (Nifty 50 — Large Cap benchmark)
+  NIFTYMIDCAP150.NS  (Nifty Midcap 150 — Mid-cap growth)
+  JUNIORBEES.NS      (Nifty Next 50 proxy ETF — emerging blue chips)
+
+CLASS 2 — GLOBAL EQUITY
+  CSPX.L             (S&P 500 ETF, London listed, USD denominated)
+                     USD→INR conversion: fetch INR=X from yfinance daily.
+  MAFANG.NS          (Nasdaq/Tech proxy available on NSE)
+
+CLASS 3 — DEBT & FIXED INCOME (REMEDIATION: renamed from "Debt")
+  ABCBF.NS           (Aditya Birla AAA Corporate Bond ETF)
+  LIQUIDBEES.NS      (Nippon Liquid BeES — cash equivalent)
+  NOTE: Label as "Fixed Income (Bonds & G-Secs)" everywhere in the UI.
+        Never use the word "Debt" in user-facing strings.
+
+CLASS 4 — COMMODITIES
+  GOLDBEES.NS        (Gold BeES — primary hedge)
+  SILVERBEES.NS      (Silver BeES — secondary hedge)
+
+CLASS 5 — REAL ESTATE (REIT)
+  EMBASSY.NS         (Embassy Office Parks REIT)
+  MINDSPACE.NS       (Mindspace Business Parks REIT)
+
+CLASS 6 — INFRASTRUCTURE / INFLATION HEDGE
+  INFRABEES.NS       (Bharat 22 / Infra ETF proxy)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6C.  METRICS COMPUTATION (from 2Y/1H data, resampled to daily)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FROM DAILY RESAMPLED CLOSE (for each of 12 assets):
+
+  RETURN METRICS:
+  • CAGR (2Y, 1Y, 6M) — show trend direction
+  • Annualised return (geometric mean of daily returns × 252)
+  • Best Month / Worst Month (range of human experience)
+  • Maximum Drawdown = max(1 - P_t / cummax(P)) over the 2Y window
+
+  RISK METRICS:
+  • Annualised Volatility = std(daily_returns) × √252
+  • Sharpe Ratio = (CAGR − 0.065) ÷ Ann_Volatility
+    (Risk-free rate hardcoded at 6.5% = approx 91-day T-bill)
+  • Sortino Ratio = (CAGR − 0.065) ÷ Downside_Deviation
+    Downside deviation = std of returns below 0 × √252
+  • Beta vs. ^NSEI = Cov(asset_returns, nifty_returns) / Var(nifty_returns)
+  • VaR (95%, parametric) = mean_daily − 1.645 × std_daily
+    Displayed as: "In a bad month, you could lose up to X%"
+
+  FROM 1-HOUR DATA (regime and momentum signals):
+  • 50-hour EMA (fast) and 200-hour EMA (slow) for each asset
+    These are equivalent to 50-day and 200-day EMAs at hourly resolution,
+    giving more responsive crossover detection within Indian trading hours.
+  • Rolling 24H realised volatility (detects intraday vol spikes)
+  • Hurst Exponent (on hourly Nifty 50 returns) — see §6D
+
+  CORRELATION MATRIX:
+  Full 12×12 Pearson correlation matrix on daily log-returns.
+  Displayed as Plotly annotated heatmap (colour scale: -1 red → 0 white → 1 blue).
+  Used downstream for Marchenko-Pastur denoising.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6D.  MARKET REGIME DETECTION — HURST EXPONENT + DUAL EMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SIGNAL 1: HURST EXPONENT (on hourly Nifty 50 log-returns, 2Y window)
+
+  Formula (Rescaled Range analysis):
+    For time window τ:
+      R(τ) = max(cumulative deviations) − min(cumulative deviations)
+      S(τ) = std dev of the τ-length sub-series
+      E[R(τ)/S(τ)] = C × τ^H
+    H is estimated by log-log regression of R/S vs. τ across multiple windows.
+
+  REGIME ROUTING:
+    H < 0.45  → Mean-Reverting / Choppy
+                UI flag (amber): "Market is trendless. Avoid lump-sum. Use
+                Systematic Transfer Plan (STP) over 3–6 months."
+                Action: hold 20% extra in LIQUIDBEES; queue weekly STP tranches.
+
+    0.45–0.55 → Random Walk
+                UI flag (neutral): "Market is range-bound. Execute baseline
+                allocation per risk profile."
+
+    H > 0.55  → Trending / Persistent
+                UI flag (green): "Market is trending. Greenlight lump-sum
+                equity deployment."
+                Action: Full equity sleeve deployed immediately.
+
+SIGNAL 2: DUAL-ADAPTIVE EMA CROSSOVER (on daily close, per equity asset)
+
+  EMA Formula:
+    α = 2 / (N + 1)
+    EMA_t = α × P_t + (1 − α) × EMA_{t−1}
+
+  Tracking:
+    Fast EMA = 50-day (derived from daily resampled close)
+    Slow EMA = 200-day (200-day moving average = full 2Y window avg)
+
+  BEAR SIGNAL triggered when BOTH conditions are true simultaneously:
+    (1) Fast EMA crosses below Slow EMA (death cross)
+    (2) Current price < 200-day EMA (confirms downtrend, prevents whipsaws)
+
+  ACTION on Bear Signal:
+    Reduce recommended equity allocation by 50% for that specific asset.
+    Reallocate the freed weight: 50% → LIQUIDBEES, 50% → GOLDBEES.
+
+  COMBINED REGIME OUTPUT (4 states, rule-based):
+    BULL     : Nifty above 200D EMA, H > 0.50, no death cross on major indices
+    FROTHY   : Nifty above 200D EMA, H > 0.55, PE > 25 (hardcoded threshold)
+    BEAR     : Death cross confirmed on Nifty + price below 200D EMA
+    RECOVERY : Price just crossed above 200D EMA from below (buying signal)
+
+  CONTEXTUAL ADVISORY SHOWN (example for FROTHY):
+    "Markets are currently extended. Nifty PE at ~X. Consider deploying via
+     STP rather than lump sum. At current Gold/Nifty ratio, gold looks
+     relatively attractive as a tactical hedge."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6E.  PORTFOLIO CONSTRUCTION ENGINE — 4-STEP PROCESS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1 — BASE ALLOCATION BY RISK PROFILE
+
+  Asset Class               | Ultra-Con | Conserv | Moderate | Growth | Aggres
+  __________________________|___________|_________|__________|________|_______
+  Indian Large Equity       |    5%     |   15%   |   30%    |  45%   |  50%
+  Indian Mid Equity         |    0%     |    5%   |   10%    |  15%   |  20%
+  Global Equity             |    0%     |    5%   |   10%    |  10%   |  10%
+  Fixed Income (Bonds/GSec) |   60%     |   45%   |   25%    |  10%   |   5%
+  Gold                      |   20%     |   15%   |   10%    |  10%   |   5%
+  Silver                    |    5%     |    5%   |    5%    |   5%   |   5%
+  REIT                      |    0%     |    5%   |    5%    |   5%   |   5%
+  Cash Equivalents (Liquid) |   10%     |    5%   |    5%    |   0%   |   0%
+
+  UI LABELS (REMEDIATION): "Fixed Income (Bonds & G-Secs)" not "Debt."
+  "Cash Equivalents (FDs & Liquid Funds)" not "Liquid."
+  Asset groups labelled: Growth Assets (blues) vs. Defensive Assets (greens/golds).
+  Legend tooltip: "Gold: Stabilises portfolio during equity crashes."
+
+STEP 2 — MARCHENKO-PASTUR COVARIANCE DENOISING
+
+  WHY: Raw empirical covariance matrices contain noise eigenvalues. Optimising
+  against noisy covariances leads to "error maximisation" — overweighting
+  statistical artifacts as if they were real diversification signals.
+
+  MATHEMATICS:
+    Q = T / N  where T = number of daily observations (~504), N = 12 assets
+    σ² = 1 (normalised correlation matrix)
+    λ_max = σ² × (1 + √(1/Q))²    ← maximum noise eigenvalue threshold
+
+  EXECUTION:
+    1. Compute empirical correlation matrix C from daily log-returns.
+    2. Eigendecompose: C = V Λ V^T  (eigenvalues λ₁ ≥ λ₂ ≥ … ≥ λ₁₂)
+    3. Identify noise set: {λᵢ : λᵢ ≤ λ_max}
+    4. Replace noise eigenvalues with their mean (preserves matrix trace).
+    5. Reconstruct denoised correlation matrix: C̃ = V Λ̃ V^T
+    6. Convert to covariance matrix: Σ̃ = D^(1/2) × C̃ × D^(1/2)
+       where D = diagonal of annualised variances.
+
+STEP 3 — SHARPE MAXIMISATION (scipy.optimize.minimize)
+
+  Objective: Maximise Sharpe Ratio = (w^T μ − r_f) / √(w^T Σ̃ w)
+    Where μ = vector of 12 asset annualised CAGRs (from 2Y data)
+          Σ̃ = denoised covariance matrix
+          r_f = 0.065 (risk-free rate)
+          w = portfolio weight vector
+
+  CONSTRAINTS:
+    Σ wᵢ = 1.0         (fully invested)
+    wᵢ ≥ 0              (no short positions)
+    MaxDD(w, historical_returns) ≤ MaxDD_tolerance (from Stage 4 risk profile)
+    wᵢ ≤ profile_upper_bound[i]  (per-asset cap from base allocation × 1.5)
+
+  BLEND: Final_w = 0.60 × base_profile_w + 0.40 × optimised_w
+  This prevents a pure black-box quant allocation that users won't trust.
+
+STEP 4 — REGIME OVERLAY (Dual-Adaptive Momentum)
+  Apply bear signals from §6D:
+  For each equity asset flagged with a death cross:
+    Final_w[equity_asset] × 0.50 → reallocate to LIQUIDBEES + GOLDBEES
+
+  For Hurst < 0.45 (mean-reverting regime):
+    Cash Equivalents sleeve bumped to min(current + 15%, 30%).
+    Equity reduced proportionally. STP flag set = True.
+
+STEP 5 — HORIZON TILT
+  Goals < 3 years  : Shift 20% weight from equity → Fixed Income + Liquid.
+  Goals 3–7 years  : No additional tilt.
+  Goals > 7 years  : Shift 10% weight from Fixed Income → equity (time diversifies).
+  Multi-goal blend : Weighted average tilt by (capital_per_goal × horizon_weight).
+
+STEP 6 — TAX EFFICIENCY OVERLAY
+  If user tax bracket = 30% slab:
+    Flag ELSS slot (replaces Indian Large Cap position up to ₹1.5L for 80C).
+  Post-2023 debt fund taxation note shown:
+    "Debt fund gains are now taxed at your income slab rate. G-Sec ETFs
+     may be more efficient for your bracket."
+  REIT dividend tax note: "REIT distributions are taxable at slab rate.
+     Factor this into post-tax return expectations."
+
+PORTFOLIO OUTPUT SCHEMA:
+  {
+    "portfolio_stats": {
+      "expected_cagr"    : 0.118,
+      "portfolio_volatility": 0.092,
+      "sharpe_ratio"     : 0.57,
+      "sortino_ratio"    : 0.81,
+      "max_drawdown_hist": 0.19,
+      "market_regime"    : "Bull",
+      "hurst_exponent"   : 0.58,
+      "stp_recommended"  : false
+    },
+    "allocations": {
+      "indian_large_equity" : 0.36,
+      "indian_mid_equity"   : 0.12,
+      "global_equity"       : 0.09,
+      "fixed_income"        : 0.18,
+      "gold"                : 0.12,
+      "silver"              : 0.04,
+      "reit"                : 0.05,
+      "cash_equivalents"    : 0.04
+    },
+    "rupee_amounts": {
+      "indian_large_equity" : 432000,
+      ...
+    },
+    "instruments": {
+      "indian_large_equity" : "Nifty 50 Index Fund (direct plan)",
+      "fixed_income"        : "Bharat Bond ETF April 2031",
+      ...
+    }
+  }
+
+DONUT CHART DISPLAY:
+  Segments coloured by function group:
+    Growth Assets   : shades of #00D4FF → #0050A0  (equity, REIT)
+    Defensive Assets: shades of #FFD700 → #00FF88  (gold, silver, fixed income, liquid)
+  Legend includes purpose descriptor per asset class.
+  Centre of donut: Expected CAGR % + Sharpe Ratio.
+
+SHARPE RATIO TOOLTIP (REMEDIATION):
+  Do not print "Sharpe Ratio: 0.57" without context.
+  Tooltip text: "Sharpe Ratio measures return earned per unit of risk.
+  0.57 means you earn 0.57 rupees of excess return for every 1 rupee of
+  volatility you accept. Above 0.5 is considered good for Indian markets."
+
+
+================================================================================
+7.0  STAGE 6 — STOCHASTIC SIMULATION, STRESS TESTING & ACTION PLAN
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7A.  DETERMINISTIC SCENARIO ENGINE (3 scenarios, per goal)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For each goal, three deterministic projection paths are computed:
+
+  BEAR CASE   : Each asset CAGR = historical_2Y_CAGR − 1.0 × ann_volatility
+                Label: "Pessimistic (Bad Decade)"
+
+  BASE CASE   : Each asset CAGR = historical_2Y_CAGR
+                Label: "Expected (Historical Average)"
+
+  BULL CASE   : Each asset CAGR = historical_2Y_CAGR + 0.5 × ann_volatility
+                Label: "Optimistic (Strong Decade)"
+
+  Portfolio CAGR for each scenario = Σ(wᵢ × CAGRᵢ_scenario)
+
+  OUTPUTS per scenario:
+  - Year-by-year corpus table (expandable section, Indian number format)
+  - Final corpus vs. goal target (₹ gap or surplus, colour-coded)
+  - Inflation-adjusted real value of final corpus at goal date
+  - % probability of hitting goal (derived from Monte Carlo, §7B)
+
+  LUMP SUM vs. SIP COMPARISON:
+  Both paths shown on the same Plotly line chart per scenario.
+  Annotation: "In a trending market (H > 0.55), lump sum historically
+  outperforms SIP over a 7-year horizon. In choppy markets, SIP wins."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7B.  MONTE CARLO SIMULATION ENGINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+MODEL: Geometric Brownian Motion with Merton Jump Diffusion overlay.
+
+GBM MATHEMATICS:
+  dS_t = μ S_t dt + σ S_t dW_t
+
+  Discretized monthly formula:
+    S_{t+1} = S_t × exp((μ − σ²/2) × Δt + σ × Z × √Δt)
+    Where Z ~ N(0,1), Δt = 1/12 (monthly step)
+    μ = portfolio_expected_cagr (from §6E output)
+    σ = portfolio_volatility
+
+JUMP DIFFUSION OVERLAY (Merton approximation):
+  Each monthly step: draw U ~ Uniform(0,1)
+  If U < (0.05/12):  ← 5% annual probability, distributed monthly
+    Inject jump shock: S_{t+1} × (1 + jump_size)
+    jump_size drawn from Uniform(−0.30, −0.15)  ← −15% to −30% shock
+  This models Indian market fat tails and crash events.
+
+VECTORISED EXECUTION (10,000 paths):
+  paths = np.zeros((10000, N_months + 1))
+  paths[:, 0] = initial_corpus
+  Z = np.random.standard_normal((10000, N_months))
+  jump_mask = np.random.uniform(0,1,(10000,N_months)) < (0.05/12)
+  jump_sizes = np.random.uniform(-0.30,-0.15,(10000,N_months))
+  for t in range(N_months):
+      paths[:, t+1] = paths[:, t] × exp(drift × Δt + σ × Z[:,t] × √Δt)
+      paths[:, t+1] × np.where(jump_mask[:,t], 1+jump_sizes[:,t], 1.0)
+  (SIP contributions added monthly: paths[:, t+1] += monthly_sip)
+
+PROBABILITY OF SUCCESS:
+  success_count = Σ(paths[:, −1] >= goal_target)
+  probability_of_success = success_count / 10000
+
+CHART — PROBABILITY FAN CONE (Plotly):
+  5 percentile bands plotted:
+    10th pct (worst 10%) — thin coral band
+    25th pct             — medium amber band
+    50th pct (median)    — white bold line
+    75th pct             — medium green band
+    90th pct (best 10%)  — thin electric blue band
+  Goal target shown as a dashed horizontal gold line.
+  Shaded area between 25th and 75th = "Most Likely Range."
+
+REMEDIATION — NO DEAD ENDS:
+  If probability_of_success < 80%:
+    DO NOT show a static number and leave the user stranded.
+    Auto-generate 3 resolution suggestions displayed in a coral panel:
+      "Option 1: Extend timeline by [N] years → success probability rises to ~Y%"
+      "Option 2: Increase monthly SIP by ₹[X] → probability rises to ~Y%"
+      "Option 3: Accept Moderate risk profile → probability rises to ~Y%"
+    These estimates are pre-calculated by running 3 additional quick MC runs.
+
+  If probability_of_success = 0% (impossible plan):
+    DO NOT display a flat zero. Show:
+    "This goal is currently mathematically unreachable with your surplus.
+     The Resolution Engine below will find the closest viable path."
+    And scroll the user directly to the What-If sliders.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7C.  WHAT-IF RESOLUTION ENGINE (Interactive Sliders)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Three sliders (Streamlit st.slider) that trigger real-time MC re-execution:
+
+  SLIDER 1 — Monthly SIP Amount
+    Min: current_monthly_surplus × 0.5
+    Max: current_monthly_surplus × 1.5
+    Step: ₹500
+    On change: re-run vectorised MC, update fan chart and probability %.
+
+  SLIDER 2 — Time Horizon (years)
+    Min: goal_horizon × 0.5  (can reduce)
+    Max: goal_horizon × 2.0  (can extend)
+    Step: 1 year
+
+  SLIDER 3 — Risk Profile
+    Options: Ultra-Conservative / Conservative / Moderate / Growth / Aggressive
+    On change: re-fetch portfolio stats for new profile (cached), re-run MC.
+
+REAL-TIME FEEDBACK LOOP:
+  As user drags any slider, the fan chart animates and the probability
+  number updates live (using st.empty() placeholders + Streamlit re-run).
+  A green checkmark appears when probability crosses 80%.
+  A gold banner appears when probability crosses 90%:
+    "Excellent. This plan has a 90%+ probability of success."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7D.  CONTEXT-AWARE ACTION PLAN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+REMEDIATION — TWO BUGS FIXED:
+  Bug 1: SIP in action plan was set to the entire lump sum (₹11.9L/month).
+          Fix: variable mapping corrected to monthly_sip_amount (from Slider 1
+          or Stage 4 calculation), not total_deployable_surplus.
+  Bug 2: Action plan suggested opening brokerage account even when probability
+          was 0%. Fix: plan is gated by probability_of_success threshold.
+
+PLAN LOGIC TREE:
+
+  IF probability_of_success < 50%:
+    IMMEDIATE ACTION: "Re-evaluate Goal Parameters"
+    Only show the Resolution Engine. No brokerage steps.
+    Do NOT suggest investing in a mathematically doomed plan.
+
+  IF 50% ≤ probability_of_success < 80%:
+    Show partial plan with prominent caveat:
+    "This plan is viable but needs improvement. Use the sliders above
+     to raise your probability before executing."
+    Show Tier-1 steps only (cancel subscriptions, set up emergency fund).
+    Hold execution steps (SIP setup, lump sum deployment) pending.
+
+  IF probability_of_success ≥ 80%:
+    Show full action plan, sequenced as follows:
+
+IMMEDIATE — T+0 (This Week):
+  ✓ Cancel [N] identified unused subscriptions → frees ₹[X]/month
+    [Generated from Stage 2 Subscription Audit, auto-populated]
+  ✓ Set up auto-sweep FD or LIQUIDBEES for ₹[emergency_fund_gap] liquid buffer
+  ✓ Verify credit card auto-pay is set (avoid interest charges)
+
+SHORT-TERM — T+7 (This Month):
+  ✓ Open [Zerodha / Groww / Kuvera] account (if no investment txns detected)
+  ✓ Deploy ₹[lump_sum_amount] lump sum:
+      → ₹[indian_large_equity_amount] into [Nifty 50 Index Fund]
+      → ₹[fixed_income_amount] into [Bharat Bond ETF]
+      → ₹[gold_amount] into [GOLDBEES]
+      [STP flag: If stp_recommended=True, replace lump sum text with:
+       "Deploy via STP: ₹[amount]/week into equity for [N] weeks."]
+  ✓ If ELSS flagged: "Invest ₹1,50,000 in [ELSS Fund] for 80C deduction.
+    Saves ₹46,800 in tax this year (at 30% bracket)."
+
+MEDIUM-TERM — T+30 (This Month):
+  ✓ Initiate SIP of ₹[monthly_sip_amount]/month in [recommended fund mix]
+    [Note: monthly_sip_amount = from slider or Stage 4 calculation — NOT lump sum]
+  ✓ Set calendar reminder: Portfolio rebalancing in 6 months
+  ✓ Review term insurance gap (if Q9 risk questionnaire flagged inadequate cover)
+
+LONG-TERM — Annual Review:
+  ✓ Step up SIP by 10% per year (to match estimated salary growth)
+  ✓ Rebalance if any asset class drifts > 5% from target allocation
+  ✓ Reassess risk profile after major life events (marriage, child, job change)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7E.  MARKET CONTEXT PANEL (live at top of Stage 6)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Compact 4-metric ticker bar (fetched via yfinance at stage entry):
+  Nifty 50 Level | Nifty PE (hardcoded latest if API unavailable) |
+  Gold/Nifty ratio | USD/INR
+
+Market Regime badge (from §6D): BULL / FROTHY / BEAR / RECOVERY
+  + one-line advisory linked to regime.
+
+If API data unavailable: amber badge "Live data unavailable — using cached
+signals from [date]. Regime assessment may be stale."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7F.  PEER BENCHMARKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Cohort defined by income bracket (±20%) and age bracket.
+All peer data synthetic, sourced from RBI/SEBI/AMFI publications.
+Shown as percentile rankings:
+  "Your savings rate (22%) is in the top 31% of your income cohort."
+  "Your discretionary spend (38%) exceeds 67% of similar earners."
+  "Your investment activity is in the bottom 40% — most peers have
+   active SIPs at your income level."
+
+
+================================================================================
+8.0  DATA CONTRACTS & JSON SCHEMAS
+================================================================================
+
+8.1  CLAUDE CATEGORISATION RESPONSE (Stage 2, per batch of 20 txns)
+{
+  "transactions": [
+    {
+      "tx_id"          : "row_001",
+      "clean_merchant" : "Swiggy",
+      "category"       : "Food & Dining",
+      "subcategory"    : "Food Delivery",
+      "necessity_flag" : "discretionary",
+      "spending_signal": "lifestyle",
+      "recurrence"     : "frequent",
+      "is_fixed"       : false,
+      "is_investment"  : false,
+      "confidence"     : 0.97
+    }
+  ]
+}
+
+8.2  STAGE 3 SURPLUS OUTPUT
+{
+  "current_balance"   : 1195526,
+  "lock_a_fixed"      : 32000,
+  "lock_b_variable"   : 18400,
+  "lock_c_emergency"  : 96000,
+  "lock_d_tax"        : 0,
+  "lock_e_short_term" : 50000,
+  "deployable_surplus": {
+    "conservative" : 895000,
+    "base"         : 999126,
+    "optimistic"   : 1064926
+  },
+  "monthly_sip_surplus": 22500
+}
+
+8.3  PORTFOLIO OPTIMISER OUTPUT (Stage 5 → Stage 6)
+{
+  "portfolio_stats": {
+    "expected_cagr"       : 0.118,
+    "portfolio_volatility": 0.092,
+    "sharpe_ratio"        : 0.57,
+    "sortino_ratio"       : 0.81,
+    "max_drawdown_hist"   : 0.19,
+    "market_regime"       : "Bull",
+    "hurst_exponent"      : 0.58,
+    "stp_recommended"     : false,
+    "data_freshness_hrs"  : 2.3
+  },
+  "allocations": {
+    "indian_large_equity" : 0.36,
+    "indian_mid_equity"   : 0.12,
+    "global_equity"       : 0.09,
+    "fixed_income"        : 0.18,
+    "gold"                : 0.12,
+    "silver"              : 0.04,
+    "reit"                : 0.05,
+    "cash_equivalents"    : 0.04
+  },
+  "rupee_amounts": {
+    "indian_large_equity" : 359685,
+    "fixed_income"        : 179843,
+    ...
+  },
+  "instruments": {
+    "indian_large_equity" : "UTI Nifty 50 Index Fund — Direct Growth",
+    "fixed_income"        : "Bharat Bond ETF — April 2031 (BBETF0431)",
+    "gold"                : "GOLDBEES (Gold BeES ETF)",
+    "cash_equivalents"    : "LIQUIDBEES (Nippon Liquid ETF)"
+  }
+}
+
+8.4  MONTE CARLO OUTPUT (Stage 6)
+{
+  "n_simulations"          : 10000,
+  "probability_of_success" : 0.847,
+  "percentiles": {
+    "p10" : 854000,
+    "p25" : 1120000,
+    "p50" : 1580000,
+    "p75" : 2140000,
+    "p90" : 2890000
+  },
+  "goal_target"            : 1500000,
+  "resolution_suggestions": [
+    {"action": "extend_horizon", "years": 2, "new_probability": 0.91},
+    {"action": "increase_sip",   "amount": 3000, "new_probability": 0.88},
+    {"action": "increase_risk",  "profile": "Growth", "new_probability": 0.89}
+  ]
+}
+
+
+================================================================================
+9.0  UI/UX DESIGN SYSTEM
+================================================================================
+
+DESIGN LANGUAGE: "Institutional Dark" — Bloomberg terminal meets modern fintech.
+
+COLOUR PALETTE:
+  #0A0F1E  — Deep navy background
+  #00D4FF  — Electric blue (primary accent, chart lines, active states)
+  #FFD700  — Gold (positive signals, target lines, goal achieved)
+  #FF6B6B  — Coral (warnings, negative states, overspend flags)
+  #00FF88  — Bright green (success states, probability ≥ 80%)
+  #1E2A3A  — Card background (slightly lighter than bg)
+  #8899AA  — Muted text (labels, secondary info)
+  #FFFFFF  — Primary text
+
+TYPOGRAPHY:
+  Headings: Inter 700 (or system sans-serif)
+  Numbers:  JetBrains Mono (monospaced for financial figures)
+  Body:     Inter 400
+
+COMPONENT LIBRARY (custom HTML/CSS cards):
+  Metric Card     : glassmorphism panel, single KPI, colour-coded border
+  Alert Banner    : coral (error), amber (warning), green (success)
+  Progress Stage  : sidebar tracker, 6 steps, active step highlighted
+  Personality Card: gradient background per type, icon, title, insight text
+  Probability Dial: animated gauge, colour shifts red→amber→green at 50%→70%→80%
+
+CHART INVENTORY (all Plotly, dark theme, no Streamlit defaults):
+  Stage 2  : Sankey diagram (cash flow), Temporal heatmap, Bar (top merchants),
+             Scatter (merchant frequency matrix)
+  Stage 3  : Circular gauge (Health Score), Horizontal bar (surplus breakdown)
+  Stage 4  : Slider UI (goal inputs), Feasibility bar (SIP vs. surplus)
+  Stage 5  : Efficient Frontier scatter (risk vs. return), Donut chart (allocation),
+             Correlation heatmap, Bar (asset metrics)
+  Stage 6  : Fan chart / probability cone (Monte Carlo), Line chart (scenarios),
+             Gauge (probability of success)
+
+NUMBER FORMATTING (REMEDIATION — applied globally):
+  All ₹ amounts formatted in Indian numbering system:
+    < ₹1,000          → "₹850"
+    ₹1,000–₹99,999    → "₹12,450"
+    ₹1,00,000–₹99,99,999 → "₹12.4 Lakhs" (one decimal)
+    ≥ ₹1,00,00,000    → "₹1.24 Crore"
+  NO trailing decimals like ₹5,385,252.347...
+  Implementation: custom format_inr(amount) function in config.py, applied
+  to all f-strings and Plotly hovertext throughout the app.
+
+PDF EXPORT (report_exporter.py):
+  Generate a 6-page PDF report via reportlab:
+    Page 1: Financial Health Score + Surplus summary
+    Page 2: Transaction Intelligence (Sankey static image, spending breakdown)
+    Page 3: Goal Architecture + Risk Profile
+    Page 4: Portfolio Recommendation (donut static image + ₹ allocations)
+    Page 5: Monte Carlo Fan Chart + Probability of Success
+    Page 6: Full Action Plan (4-tier checklist)
+  Footer on every page: SEBI disclaimer + data privacy statement.
+
+
+================================================================================
+10.0  SPRINT ROADMAP
+================================================================================
+
+SPRINT 1 — DATA FOUNDATION (Weeks 1–2)
+  - Build Streamlit skeleton + global CSS injection
+  - Implement Stage 1: CSV parsing, bank format heuristics, column normaliser
+  - Implement Data Confidence Score and integrity engine
+  - Connect Anthropic Claude API: batching logic, PII scrub, retry handler
+  - Seed merchant_cache.json with 500+ common Indian merchants
+  - Build local Regex + TF-IDF Phase A categoriser
+  - Build Surplus Calculator (5-lock system)
+  Deliverable: Working ingestion → categorisation → surplus calculation
+
+SPRINT 2 — ANALYSIS & PROFILING (Weeks 3–4)
+  - Build all 6 Flow Analysis modules (Sankey, heatmap, merchant table)
+  - Build Behavioral Profiling engine (6 personality types)
+  - Implement "Cost of Idle Cash" module for Accumulator type
+  - Build Subscription Audit interactive table with opportunity cost
+  - Build Financial Health Score (6-dimension, 0–850)
+  - Build Stage 4: multi-goal setup, feasibility gating, nominal/real toggle
+  - Build Risk Profiling questionnaire (10 questions, rupee-anchored)
+  Deliverable: End-to-end Stage 1–4 pipeline
+
+SPRINT 3 — MARKET ENGINE (Weeks 5–6)
+  - Build yfinance data fetcher (2Y/1H, daily resample, 4h cache, fallback CSV)
+  - Build metrics engine (CAGR, Sharpe, Sortino, VaR, Beta)
+  - Build Marchenko-Pastur denoiser
+  - Build Hurst Exponent calculator on hourly Nifty returns
+  - Build Dual-EMA crossover detector
+  - Build scipy Sharpe-maximising optimiser with MaxDD constraint
+  - Build portfolio construction (4-step: base + denoise + optimise + regime overlay)
+  - Build Efficient Frontier scatter and correlation heatmap
+  Deliverable: Full Stage 5 portfolio engine with regime signals
+
+SPRINT 4 — SIMULATION & ACTION (Weeks 7–8)
+  - Build vectorised GBM + Jump Diffusion Monte Carlo (10,000 paths)
+  - Build fan chart (5-percentile Plotly cone)
+  - Build What-If Resolution Engine (3 sliders, real-time MC)
+  - Build context-aware Action Plan generator (gated by probability)
+  - Build auto-resolution suggestion engine (3 alternatives on failure)
+  - Integrate market context panel (regime badge, 4-metric ticker)
+  Deliverable: Full Stage 6 pipeline with no dead ends
+
+SPRINT 5 — POLISH & EXPORT (Week 9)
+  - Apply format_inr() globally across all ₹ displays
+  - PDF report generation via reportlab (6-page template)
+  - Peer benchmarking module (synthetic cohort from benchmarks.json)
+  - Full end-to-end pipeline test with real bank statement sample
+  - Graceful degradation testing (simulate all API failure modes)
+  - SEBI disclaimer integration on all projection pages
+  - Performance profiling and optimisation
+  Deliverable: Production-ready MVP on Streamlit Community Cloud
+
+
+================================================================================
+11.0  PERFORMANCE TARGETS
+================================================================================
+
+  Stage 1  — Ingestion & parsing            : < 2 seconds
+  Stage 2  — AI categorisation (100 txns)   : < 30 seconds (with progress bar)
+  Stage 2  — Flow analysis + visuals        : < 3 seconds
+  Stage 3  — Health score + surplus         : < 1 second
+  Stage 4  — Goal + risk profiling UI       : Instant (form-based)
+  Stage 5  — yfinance fetch (12 assets, 2Y/1H): < 15 seconds (with spinner)
+  Stage 5  — Denoising + optimisation       : < 5 seconds
+  Stage 6  — Monte Carlo (10,000 paths)     : < 5 seconds (numpy vectorised)
+  Stage 6  — What-If re-run (on slider)     : < 2 seconds per re-run
+  PDF export                                : < 10 seconds
+
+
+================================================================================
+12.0  COMPLIANCE & DISCLAIMERS
+================================================================================
+
+SEBI DISCLAIMER (shown on every page containing projections):
+  "Mutual fund investments are subject to market risks. Read all
+   scheme-related documents carefully. Past performance is not indicative
+   of future returns. This tool is for educational and illustrative purposes
+   only and does not constitute SEBI-registered investment advice."
+
+DATA PRIVACY STATEMENT (shown on upload screen and PDF footer):
+  "Your uploaded bank statement is processed entirely within your browser
+   session and is never stored on our servers. All data is cleared when you
+   close this tab. Transaction narrations sent to the AI engine are
+   anonymised — names, UPI IDs, and account numbers are removed before
+   processing."
+
+PROJECTION ACCURACY NOTE (shown below all Monte Carlo outputs):
+  "All projections are based on 2-year historical data and stochastic
+   modelling. Actual returns will differ. The scenarios shown represent
+   a statistical distribution of plausible outcomes, not guarantees."
+
+INVESTMENT ADVICE BOUNDARY:
+  The app explicitly never tells the user which specific AMC's fund to
+  buy by name in a prescriptive sense. It recommends index categories and
+  ETF proxies. All instrument suggestions are accompanied by:
+  "Verify current NAV, TER, and fund rating before investing."
+
+
+================================================================================
+APPENDIX A — TECHNICAL IMPLEMENTATION NOTES
+================================================================================
+
+A1. YFINANCE 2Y/1H KNOWN LIMITATIONS
+  - yfinance hourly data is returned for the last 730 calendar days maximum.
+  - Weekend and holiday bars are absent (expected, handle with dropna()).
+  - GOLDBEES and SILVERBEES may have volume=0 on thin trading days — handle
+    with forward-fill for price, zero for volume.
+  - Global equity (CSPX.L) returns in USD. Apply daily INR=X close price
+    to convert all returns to INR-equivalent before metrics computation.
+    inr_rate = yf.Ticker("INR=X").history(period="2y", interval="1d")["Close"]
+
+A2. SCIPY OPTIMISER NOTES
+  - Use method="SLSQP" for constrained optimisation (supports equality +
+    inequality constraints).
+  - Initial guess: base risk profile weights (Step 1 of §6E).
+  - MaxDD constraint implementation: compute portfolio historical MaxDD on
+    the 2Y daily returns series using the weight vector w. Add as an
+    inequality constraint: MaxDD(w, returns) <= maxdd_tolerance.
+    MaxDD_portfolio(w) = max_drawdown(returns_matrix @ w)
+    This is computationally cheap on 500 daily rows.
+  - Bounds: (0, upper_bound_per_asset) where upper_bound = base_weight × 1.5.
+
+A3. MARCHENKO-PASTUR EDGE CASES
+  - If N = 12 assets and T = 504 days: Q = 504/12 = 42. λ_max ≈ 1.31.
+  - If fewer days available (fallback CSV shorter): recalculate Q accordingly.
+  - If all eigenvalues > λ_max (rare, means very strong signal): do not clip
+    anything. Use the raw empirical matrix. Log a debug note.
+
+A4. INDIAN NUMBER FORMAT UTILITY FUNCTION (config.py)
+  def format_inr(amount: float) -> str:
+      if amount < 1_00_000:
+          return f"₹{amount:,.0f}"
+      elif amount < 1_00_00_000:
+          return f"₹{amount/1_00_000:.1f} Lakhs"
+      else:
+          return f"₹{amount/1_00_00_000:.2f} Crore"
+
+A5. STREAMLIT PERFORMANCE PATTERN FOR MONTE CARLO
+  - Run 10,000 paths in a single numpy operation (fully vectorised, no loops).
+  - Use @st.cache_data on the MC function with corpus + sip + cagr + sigma +
+    horizon as cache keys. Slider changes invalidate cache automatically.
+  - Use st.empty() containers for the fan chart and probability gauge to
+    enable in-place updates without full page re-render on slider movement.
+
+================================================================================
+DOCUMENT END
+================================================================================
+VERSION     : 2.0 — Remediation-Integrated, 2Y/1H Data Spec
+TOTAL STAGES: 6 (ingestion → intelligence → health → goals → market → simulate)
+ESTIMATED LOC: ~4,500–5,500 lines Python
+BUILD TIME  : 9 weeks (solo developer)
+DEPLOYMENT  : Streamlit Community Cloud or self-hosted Docker (port 8501)
+================================================================================

@@ -1,0 +1,722 @@
+================================================================================
+         RETAILQUANT PRO — SOPHISTICATED FINTECH APP: COMPLETE WORKFLOW
+           Institutional-Grade Personal Finance Intelligence Platform
+================================================================================
+
+VERSION: 2.0 — ULTRA-SOPHISTICATED EDITION
+TARGET USER: Urban Indian professional, age 25–45, ₹5L–₹50L annual income
+PHILOSOPHY: "Your money should work as hard as you do — with institutional precision"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                        APP ARCHITECTURE OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The app operates as a 6-stage intelligence pipeline:
+
+  STAGE 1: Data Ingestion & Validation
+  STAGE 2: Deep Transaction Intelligence & Behavioral Profiling
+  STAGE 3: Financial Health Scoring & Surplus Engineering
+  STAGE 4: Goal Architecture & Risk Profiling
+  STAGE 5: Market Intelligence & Diversified Portfolio Engine
+  STAGE 6: Projection Dashboard, Stress Testing & Action Plan
+
+Each stage feeds into the next, building a progressively richer financial model.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+              STAGE 1: DATA INGESTION & INTELLIGENT VALIDATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+INPUT FORMATS SUPPORTED:
+  • CSV (standard bank export — SBI, HDFC, ICICI, Axis, Kotak formats auto-detected)
+  • PDF bank statements (OCR-parsed via pdfplumber)
+  • Manual JSON upload for API-connected users
+
+VALIDATION PIPELINE:
+  1. Column Normalizer
+     - Auto-detects column names across 15+ Indian bank CSV formats
+     - Maps variants: "Debit"/"DR"/"Withdrawal Amt" → unified "withdrawal"
+     - Maps variants: "Credit"/"CR"/"Deposit Amt" → unified "deposit"
+     - Handles merged "Amount" columns with +/- signs
+
+  2. Data Integrity Checks
+     - Duplicate transaction detection (same date + amount + narration)
+     - Date gap analysis (flags missing months → incomplete statement)
+     - Balance reconciliation check (does running balance add up?)
+     - Outlier flagging: transactions > 3 standard deviations from mean
+
+  3. Statement Metadata Extraction
+     - Account holder name, account number (masked)
+     - Statement period (start date → end date)
+     - Bank/branch identification
+     - Currency confirmation (INR default)
+
+  4. Data Quality Score
+     - A 0–100 "data confidence score" shown to user
+     - Warns if <3 months of data (projections unreliable)
+     - Warns if large cash withdrawals detected (untracked spending)
+
+OUTPUT: Clean, normalized DataFrame with 12 standardized columns passed to Stage 2.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         STAGE 2: DEEP TRANSACTION INTELLIGENCE & BEHAVIORAL PROFILING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is the analytical core of the application. Stage 2 has 4 sub-modules.
+
+──────────────────────────────────────────────────────────────────────────────
+  2A. AI-POWERED TRANSACTION CATEGORIZATION (Claude API)
+──────────────────────────────────────────────────────────────────────────────
+
+Each transaction narration is sent to Claude 3.5 Haiku with a rich system prompt
+that instructs the model to return structured JSON with the following fields:
+
+  {
+    "clean_name": "Swiggy",
+    "category": "Food & Dining",
+    "subcategory": "Food Delivery",
+    "is_fixed_obligation": false,
+    "is_discretionary": true,
+    "merchant_type": "D2C App",
+    "recurrence": "frequent",         // rare / occasional / frequent / monthly
+    "spending_signal": "lifestyle",   // necessity / lifestyle / investment / savings
+    "confidence": 0.97
+  }
+
+FULL CATEGORY TAXONOMY (10 top-level + subcategories):
+
+  1. HOUSING & UTILITIES
+     - Rent / Home Loan EMI
+     - Electricity, Water, Gas bills
+     - Society maintenance / Property tax
+     - Home internet & DTH
+
+  2. FOOD & DINING
+     - Grocery (BigBasket, Blinkit, D-Mart, local kiranas)
+     - Food Delivery (Swiggy, Zomato)
+     - Restaurants & Cafes
+     - Dairy & Subscription boxes
+
+  3. TRANSPORTATION & MOBILITY
+     - Fuel (petrol/diesel at pumps)
+     - Cab & Auto (Ola, Uber, Rapido)
+     - Metro / Public transit
+     - Vehicle EMI / Insurance
+     - Vehicle servicing & parking
+
+  4. HEALTH & WELLNESS
+     - Health insurance premiums
+     - Pharmacy & medicines
+     - Doctor consultations (online & offline)
+     - Gym & fitness subscriptions
+     - Mental health & wellness apps
+
+  5. ENTERTAINMENT & LIFESTYLE
+     - OTT subscriptions (Netflix, Prime, Hotstar, Spotify)
+     - Gaming & in-app purchases
+     - Cinema & events
+     - Travel & hotels (non-EMI)
+     - Shopping (Amazon, Flipkart, Myntra — fashion/electronics)
+
+  6. FINANCIAL OBLIGATIONS
+     - Personal loan EMIs
+     - Credit card bill payments
+     - Insurance premiums (LIC, term, ULIP)
+     - SIP / Mutual fund investments (auto-identified as positive)
+     - Chit funds, RD installments
+
+  7. EDUCATION & SELF-DEVELOPMENT
+     - School / college fees
+     - Online courses (Coursera, Udemy, Unacademy)
+     - Books & stationery
+     - Professional certifications
+
+  8. SOCIAL & FAMILY
+     - UPI transfers to family members (parents, spouse, siblings)
+     - Wedding / festival gifts (Paytm/PhonePe transfers with occasion context)
+     - Charity / donations
+     - Temple/religious expenses
+
+  9. PROFESSIONAL & BUSINESS
+     - Coworking space / office expenses
+     - Professional subscriptions (LinkedIn, software tools)
+     - Business expenses (for freelancers / self-employed)
+     - Tax payments (Advance tax, GST)
+
+  10. SAVINGS & INVESTMENTS (income-positive signals)
+      - Salary credits
+      - Freelance income
+      - Dividends
+      - Interest credited
+      - Rental income
+
+BATCHING STRATEGY:
+  - Transactions are batched in groups of 20 for efficiency
+  - Retry logic with exponential backoff for API failures
+  - Local cache: identical narrations reuse cached categorization
+  - Progress bar shown to user during processing
+
+──────────────────────────────────────────────────────────────────────────────
+  2B. CASH FLOW INTELLIGENCE — WHERE IS YOUR MONEY FLOWING?
+──────────────────────────────────────────────────────────────────────────────
+
+After categorization, a multi-layer analysis answers the key question:
+"Where exactly is your money going?"
+
+  FLOW ANALYSIS 1: Proportional Spend Breakdown
+  - % of total outflow for each top-level category
+  - Compared against national urban averages (hardcoded benchmarks from RBI data)
+  - Flags categories where user is overspending vs. benchmark
+  - Example: "You spend 34% on Food & Dining vs. 15% urban average — ₹8,400 excess/month"
+
+  FLOW ANALYSIS 2: Fixed vs. Variable vs. Discretionary Decomposition
+  - Fixed: Non-negotiable, date-bound obligations (rent, EMIs, insurance)
+  - Variable-Necessary: Fluctuates but essential (groceries, fuel, medicine)
+  - Discretionary: Lifestyle and want-based (dining out, OTT, shopping)
+  - The "Leakage Score" = Discretionary ÷ Total Outflow × 100
+
+  FLOW ANALYSIS 3: Merchant Intelligence
+  - Top 10 merchants by total spend (bar chart)
+  - Merchant frequency vs. amount matrix (are you spending often or in bursts?)
+  - "Subscription Audit": All recurring fixed-amount charges listed separately
+    with monthly total — many users are unaware of 6–8 active subscriptions
+
+  FLOW ANALYSIS 4: Temporal Spending Patterns
+  - Day-of-week heatmap (do you overspend on weekends?)
+  - Week-of-month pattern (salary week vs. end-of-month crunch)
+  - Month-over-month trend per category (is food delivery spend rising?)
+  - Peak spending day identification
+
+  FLOW ANALYSIS 5: UPI vs. Card vs. Net Banking Breakdown
+  - Payment mode mix analysis
+  - High-value UPI transfers flagged for manual review (possible informal lending)
+  - ATM/cash withdrawals tracked separately as "Untracked Spend"
+
+  FLOW ANALYSIS 6: Income Stability Analysis
+  - Salary regularity check (same day each month? same amount?)
+  - Side income detection (irregular credits from non-employer sources)
+  - Income volatility score (critical for freelancers)
+  - YoY income growth estimate if >12 months of data available
+
+──────────────────────────────────────────────────────────────────────────────
+  2C. BEHAVIORAL PROFILING ENGINE
+──────────────────────────────────────────────────────────────────────────────
+
+Using the categorized and temporal data, the app builds a behavioral profile:
+
+  FINANCIAL PERSONALITY TYPE (one of 6):
+  1. The Accumulator — saves aggressively, low discretionary spend
+  2. The Balancer — healthy split, consistent behavior
+  3. The Lifestyle Inflator — income grows, spending keeps pace
+  4. The Impulse Spender — high variance, weekend spikes, high discretionary
+  5. The Debt Juggler — high EMI-to-income ratio, cash flow stressed
+  6. The Neglectful Saver — good income, but no visible investment activity
+
+  Each personality type gets:
+  - A behavioral insight card explaining the pattern
+  - Specific, actionable recommendations targeting their blind spots
+  - A "What you'd have if you changed one habit" calculator
+
+──────────────────────────────────────────────────────────────────────────────
+  2D. SPENDING OPTIMIZATION SUGGESTIONS
+──────────────────────────────────────────────────────────────────────────────
+
+Rule-based + AI-generated suggestions per overspent category:
+
+  Example outputs:
+  • "You've paid for 4 OTT platforms this month (₹1,897). Consider rotating — 
+    you likely watch 1–2 at a time. Potential savings: ₹900/month = ₹10,800/year"
+  • "Your food delivery spend (₹7,200) is 3x your restaurant spend (₹2,400). 
+    Delivery markups average 30–40%. Cooking 3 more meals/week saves ~₹2,800/month"
+  • "Credit card bill paid in full — good habit. But high utilization (82%) 
+    may affect credit score."
+
+  SAVINGS OPPORTUNITY LADDER:
+  - Quick wins (cancel unused subscriptions): estimated ₹X/month
+  - Medium effort (reduce food delivery): estimated ₹Y/month
+  - High effort (refinance loan): estimated ₹Z/month
+  - Total unlockable surplus: ₹X+Y+Z/month shown prominently
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        STAGE 3: FINANCIAL HEALTH SCORING & SURPLUS ENGINEERING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+  3A. FINANCIAL HEALTH SCORE (0–850, like a credit score)
+──────────────────────────────────────────────────────────────────────────────
+
+  Scored across 6 dimensions (weighted):
+
+  1. SAVINGS RATE (25%)
+     - Monthly savings ÷ Monthly income
+     - Benchmark: <10% Poor | 10–20% Fair | 20–35% Good | >35% Excellent
+     
+  2. DEBT SERVICE RATIO (20%)
+     - Total EMIs ÷ Monthly income
+     - Benchmark: <20% Healthy | 20–35% Caution | >35% Stressed
+     
+  3. EXPENSE DIVERSIFICATION (15%)
+     - Herfindahl-Hirschman Index applied to spending categories
+     - Extreme concentration in one category = risk signal
+     
+  4. INCOME STABILITY (15%)
+     - Coefficient of variation of monthly income
+     - Regular salary = lower risk = higher score
+     
+  5. INVESTMENT ACTIVITY (15%)
+     - Are SIPs/MFs/investments detected in the statement?
+     - Score drops to 0 if no investment activity found
+     
+  6. EMERGENCY FUND ADEQUACY (10%)
+     - Estimated liquid balance vs. 6x monthly fixed expenses
+     - Personalised (not static ₹25,000)
+
+  OUTPUT: A circular gauge showing score + letter grade (A+ to F)
+  + A "Score Improvement Roadmap" with 3 specific steps
+
+──────────────────────────────────────────────────────────────────────────────
+  3B. DEPLOYABLE SURPLUS CALCULATION (Advanced)
+──────────────────────────────────────────────────────────────────────────────
+
+  CURRENT BALANCE
+  = Total credits − Total debits (from statement)
+
+  LOCKED CAPITAL BREAKDOWN:
+  
+  a) Fixed Obligations Reserve (exact, from AI categorization)
+     = Sum of all is_fixed_obligation = true transactions × 1 month buffer
+  
+  b) Variable Expense Reserve (dynamic)
+     = Average monthly variable spend × 1.20 (20% safety buffer)
+     (old app used flat 15%, now personalised to spending volatility)
+  
+  c) Emergency Fund (personalised)
+     = 3× average monthly fixed expenses (not static ₹25,000)
+     (shown as a range: 3-month minimum to 6-month recommended)
+  
+  d) Tax Liability Reserve (new)
+     = Estimated advance tax or GST if self-employed signals detected
+     = 0 for salaried users with TDS already deducted
+  
+  e) Short-Term Goal Reserve (new)
+     = User optionally tags upcoming large expenses (vacation, gadget, wedding)
+       which are ring-fenced from investable capital
+
+  DEPLOYABLE SURPLUS = Current Balance − (a + b + c + d + e)
+
+  THREE SURPLUS SCENARIOS SHOWN:
+  • Conservative Surplus: Using 6-month emergency fund
+  • Base Surplus: Using 3-month emergency fund
+  • Optimistic Surplus: If top spending recommendations adopted
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+             STAGE 4: GOAL ARCHITECTURE & RISK PROFILING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+  4A. MULTI-GOAL SETUP (not just one target)
+──────────────────────────────────────────────────────────────────────────────
+
+  Users can define up to 5 simultaneous financial goals:
+
+  GOAL TYPES:
+  • Retirement Corpus (long horizon, inflation-adjusted)
+  • Home Down Payment (medium horizon, fixed target)
+  • Children's Education (medium horizon, inflation-adjusted)
+  • Wealth Creation / FIRE Target (flexible horizon)
+  • Custom Goal (user defines name, amount, timeline)
+
+  For each goal:
+  - Target amount (₹)
+  - Time horizon (years)
+  - Priority (1–5)
+  - Is this a lump-sum deployment or monthly SIP goal?
+
+  GOAL CONFLICT ANALYSIS:
+  - If total capital needed across all goals > available surplus, the app
+    identifies conflicts and suggests priority rebalancing
+  - "You cannot fully fund all 5 goals simultaneously. Prioritising Goals 1 & 3 
+    requires deferring Goal 4 by 2 years."
+
+──────────────────────────────────────────────────────────────────────────────
+  4B. RISK PROFILING QUESTIONNAIRE
+──────────────────────────────────────────────────────────────────────────────
+
+  10-question psychometric risk assessment:
+  
+  Topics covered:
+  1. Reaction to 20% portfolio drawdown
+  2. Employment stability and income dependability
+  3. Number of financial dependents
+  4. Existing investment experience (years)
+  5. Comfort with illiquid assets
+  6. Investment timeline flexibility
+  7. Source of capital (savings vs. windfall vs. borrowed — never invest borrowed)
+  8. Tax bracket (for tax-efficient routing)
+  9. Existing insurance coverage
+  10. Emotional relationship with money (loss aversion scale)
+
+  OUTPUT: One of 5 Risk Profiles:
+  1. Ultra-Conservative (Capital preservation priority)
+  2. Conservative (Low volatility, steady returns)
+  3. Moderate (Balanced growth and stability)
+  4. Growth (Higher equity, long-term compounding)
+  5. Aggressive (High equity + alternatives, high risk tolerance)
+
+  Risk profile directly determines the asset allocation in Stage 5.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        STAGE 5: MARKET INTELLIGENCE & DIVERSIFIED PORTFOLIO ENGINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This is the most technically sophisticated stage. It fetches real market data,
+computes risk metrics, and builds a diversified portfolio recommendation.
+
+──────────────────────────────────────────────────────────────────────────────
+  5A. ASSET UNIVERSE (12 assets across 6 classes)
+──────────────────────────────────────────────────────────────────────────────
+
+  CLASS 1 — INDIAN EQUITY (yfinance tickers)
+  • Nifty 50 Index (^NSEI) — large-cap benchmark
+  • Nifty Midcap 150 (NIFTYMIDCAP150.NS) — mid-cap growth
+  • Nifty Next 50 (^NSMIDCP) — emerging blue chips
+
+  CLASS 2 — GLOBAL EQUITY
+  • S&P 500 ETF proxy (CSPX.L or IVVB11-equivalent)
+    [Note: Use USD→INR conversion via Yahoo Finance forex]
+  • Nasdaq 100 proxy for tech exposure
+
+  CLASS 3 — DEBT & FIXED INCOME
+  • Nifty AAA Corporate Bond Index proxy (via ABCBF.NS ETF)
+  • Government Securities (10-yr GSec yield — fetched from RBI API or Yahoo)
+  • Liquid fund proxy (LIQUIDBEES.NS)
+
+  CLASS 4 — COMMODITIES
+  • Gold BeES (GOLDBEES.NS)
+  • Silver BeES (SILVERBEES.NS)
+
+  CLASS 5 — REAL ESTATE PROXY
+  • Embassy REIT (EMBASSY.NS)
+  • Mindspace REIT (MINDSPACE.NS)
+
+  CLASS 6 — ALTERNATIVE / INFLATION HEDGE
+  • Nifty India Consumption index
+  • Infrastructure / PSU ETF (INFRABEES.NS)
+
+──────────────────────────────────────────────────────────────────────────────
+  5B. MARKET DATA PROCESSING
+──────────────────────────────────────────────────────────────────────────────
+
+  For each asset, the following metrics are computed from 5 years of daily data:
+
+  RETURN METRICS:
+  • CAGR (5-year, 3-year, 1-year — to show trend)
+  • Annualised Return (simple average)
+  • Best Year / Worst Year (shows range of experience)
+  • Maximum Drawdown (worst peak-to-trough loss ever seen in data)
+  • Current vs. 52-week high/low positioning
+
+  RISK METRICS:
+  • Annualised Volatility (standard deviation of daily returns × √252)
+  • Sharpe Ratio = (CAGR − risk-free rate) ÷ Volatility
+    [Risk-free rate = current 91-day T-bill rate, fetched or hardcoded at 6.5%]
+  • Sortino Ratio (downside deviation only)
+  • Beta vs. Nifty 50 (systematic risk)
+  • Value at Risk (95% VaR — "In a bad month, you could lose X%")
+
+  CORRELATION MATRIX:
+  • Full N×N correlation matrix across all assets
+  • Displayed as a colour-coded heatmap
+  • Used to identify diversification opportunities (low/negative correlations)
+  • Highlight: Gold typically shows negative correlation with equity in downturns
+
+──────────────────────────────────────────────────────────────────────────────
+  5C. PORTFOLIO CONSTRUCTION ENGINE
+──────────────────────────────────────────────────────────────────────────────
+
+  METHOD: Risk-Profile-Driven Allocation with Optimisation overlay
+
+  STEP 1 — Base Allocation by Risk Profile
+  
+  Allocation Grid (% of deployable surplus):
+  
+  Asset Class         | Ultra-Con | Conservative | Moderate | Growth | Aggressive
+  --------------------|-----------|--------------|----------|--------|----------
+  Indian Large Equity |    5%     |    15%       |   30%    |  45%   |   50%
+  Indian Mid Equity   |    0%     |     5%       |   10%    |  15%   |   20%
+  Global Equity       |    0%     |     5%       |   10%    |  10%   |   10%
+  Debt/Fixed Income   |   60%     |    45%       |   25%    |  10%   |    5%
+  Gold                |   20%     |    15%       |   10%    |  10%   |    5%
+  Silver              |    5%     |     5%       |    5%    |   5%   |    5%
+  REIT                |    0%     |     5%       |    5%    |   5%   |    5%
+  Liquid/Cash Buffer  |   10%     |     5%       |    5%    |   0%   |    0%
+
+  STEP 2 — Efficient Frontier Optimisation (simplified)
+  • Monte Carlo simulation: 5,000 random portfolio weight combinations
+  • Each portfolio scored on Sharpe Ratio
+  • Optimal portfolio = max Sharpe on the efficient frontier
+  • Final allocation = blend of risk-profile base + optimised weights (60/40 blend)
+  • This avoids pure black-box quant output while adding sophistication
+
+  STEP 3 — Goal-Horizon Adjustment
+  • Goals <3 years: Tilt toward debt/liquid (capital preservation)
+  • Goals 3–7 years: Balanced tilt
+  • Goals >7 years: Equity tilt (time diversifies volatility)
+  • If multiple goals at different horizons, a blended allocation is shown
+
+  STEP 4 — Tax Efficiency Overlay
+  • ELSS funds flagged for users in 30% tax bracket (80C benefit)
+  • Debt fund taxation note (indexation post-2023 rule change)
+  • REIT dividend taxation (taxable at slab) vs. equity (LTCG at 10%)
+  • Recommendations include post-tax return estimates
+
+  OUTPUT: A recommended portfolio with:
+  - Exact ₹ amount per asset class
+  - Specific instrument suggestion per slot (ETF/index fund names)
+  - Expected blended CAGR (weighted average)
+  - Expected blended volatility
+  - Blended Sharpe Ratio
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       STAGE 6: PROJECTION DASHBOARD, STRESS TESTING & ACTION PLAN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+──────────────────────────────────────────────────────────────────────────────
+  6A. GROWTH PROJECTIONS (Multi-Scenario)
+──────────────────────────────────────────────────────────────────────────────
+
+  For each goal, projections are run across 3 scenarios:
+
+  SCENARIO 1 — BEAR CASE
+  • Each asset's return = CAGR − 1 standard deviation
+  • Represents an unfavourable but plausible market environment
+  • Labelled: "Pessimistic (Bad decade)"
+
+  SCENARIO 2 — BASE CASE
+  • Each asset's return = 5-year historical CAGR
+  • Labelled: "Expected (Historical average)"
+
+  SCENARIO 3 — BULL CASE
+  • Each asset's return = CAGR + 0.5 standard deviation
+  • Represents a favourable market environment
+  • Labelled: "Optimistic (Strong decade)"
+
+  FOR EACH SCENARIO:
+  - Year-by-year projected corpus table (expandable)
+  - Final corpus vs. goal target (₹ gap or surplus)
+  - % probability of hitting goal (derived from Monte Carlo distribution)
+  - Inflation-adjusted real value of projected corpus
+
+  LUMP-SUM vs. SIP COMPARISON:
+  - If user deploys surplus as lump sum: show projection curve
+  - If user deploys as monthly SIP (surplus ÷ 12): show SIP projection
+  - Comparison: which strategy wins for the given time horizon?
+  - (Lump sum wins in rising markets; SIP wins in volatile/falling markets)
+
+──────────────────────────────────────────────────────────────────────────────
+  6B. MONTE CARLO STRESS SIMULATION
+──────────────────────────────────────────────────────────────────────────────
+
+  10,000 portfolio simulations over the investment horizon:
+  - Each simulation randomly draws monthly returns from a distribution
+    calibrated to each asset's historical mean and volatility
+  - Includes rare crash events: 5% probability of -30% year (black swan)
+  - Output: Distribution of final corpus values
+
+  DISPLAYED AS:
+  • Probability cone chart (fan chart):
+    - 10th percentile (worst 10% outcomes)
+    - 25th percentile
+    - 50th percentile (median)
+    - 75th percentile
+    - 90th percentile (best 10% outcomes)
+  • "Probability of Success" metric: % of simulations that hit the goal
+  • Minimum surplus needed for 80% probability of success
+  • "Sleep-well-at-night" portfolio: what allocation gives 90%+ probability?
+
+──────────────────────────────────────────────────────────────────────────────
+  6C. MARKET CONTEXT & REGIME ANALYSIS
+──────────────────────────────────────────────────────────────────────────────
+
+  CURRENT MARKET CONDITIONS (fetched via yfinance):
+  • Nifty 50 P/E ratio (if available via API or hardcoded latest)
+  • Nifty 50 P/B ratio
+  • Market cap to GDP ratio (Buffett Indicator for India)
+  • Gold/Nifty ratio (relative valuation)
+  • USD/INR trend (impacts global equity ETF returns)
+  • FII/DII flow trend (net buyer/seller signal — if data available)
+
+  MARKET REGIME CLASSIFICATION (rule-based):
+  • BULL MARKET: Nifty above 200 DMA, P/E < 25
+  • FROTHY: Nifty above 200 DMA, P/E > 25 (caution flag)
+  • BEAR MARKET: Nifty below 200 DMA
+  • RECOVERY: Nifty crossed 200 DMA from below (buying opportunity)
+
+  Based on regime, a contextual advisory note is shown:
+  • "Markets are currently frothy. Consider staggered deployment (STP) 
+    rather than lump sum. Gold allocation looks attractive at current 
+    Gold/Nifty ratio."
+
+──────────────────────────────────────────────────────────────────────────────
+  6D. PERSONALISED ACTION PLAN
+──────────────────────────────────────────────────────────────────────────────
+
+  A priority-ordered checklist of specific actions:
+
+  IMMEDIATE (This Week):
+  □ Cancel identified unused subscriptions (₹X savings)
+  □ Set up auto-sweep FD for liquid buffer (earn 6.5% on idle cash)
+  □ Check and set credit card auto-pay to avoid interest charges
+
+  SHORT-TERM (This Month):
+  □ Open a Zerodha/Groww/Kuvera account if not already invested
+  □ Set up SIP of ₹X in [recommended ELSS fund] for 80C benefit
+  □ Deploy ₹Y lump sum into [recommended liquid fund] as emergency buffer
+  □ Review and potentially refinance [loan type] (estimated savings ₹Z/month)
+
+  MEDIUM-TERM (This Quarter):
+  □ Initiate diversified portfolio deployment per recommended allocation
+  □ Set calendar reminder for portfolio rebalancing (6 months from now)
+  □ Purchase/review term insurance coverage (if gap detected)
+
+  LONG-TERM (Annual Review):
+  □ Step up SIP by 10% each year to match salary growth
+  □ Rebalance portfolio to target allocation (if any asset drifts >5%)
+  □ Reassess risk profile and goals after major life events
+
+──────────────────────────────────────────────────────────────────────────────
+  6E. PEER BENCHMARKING
+──────────────────────────────────────────────────────────────────────────────
+
+  Compare user's financial health against anonymised cohort data:
+
+  Cohort defined by:
+  - Income bracket (±20% of user's estimated income)
+  - Age bracket (derived from statement duration, if multi-year)
+  - City tier (metro / tier-2)
+
+  Shown metrics (percentile rankings):
+  • "Your savings rate (22%) is in the top 31% of your peer group"
+  • "Your discretionary spend (38%) is higher than 67% of similar earners"
+  • "Your investment activity score is in the bottom 40% — most peers have 
+    active SIPs by this income level"
+
+  NOTE: All peer data is synthetic/benchmark-based (RBI, SEBI, AMFI publications)
+  — no real user data is aggregated.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                           UI/UX DESIGN PRINCIPLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DESIGN LANGUAGE: "Institutional Dark" — Bloomberg terminal meets modern fintech
+  • Dark navy base (#0A0F1E) with electric blue accents (#00D4FF)
+  • Gold (#FFD700) for positive signals, coral (#FF6B6B) for negative
+  • Glassmorphism cards for metric panels
+  • Plotly charts with custom dark theme — no default Streamlit charts
+  • Custom sidebar with progress tracker showing all 6 stages
+  • Animated number counters for key metrics
+  • Expandable sections to manage information density
+
+CHARTS USED:
+  • Plotly Sunburst — spending category breakdown (hierarchical)
+  • Plotly Treemap — where money flows (sized by amount)
+  • Plotly Heatmap — day/week spending pattern, correlation matrix
+  • Plotly Sankey Diagram — income → categories → savings flow
+  • Plotly Scatter (Efficient Frontier) — risk vs. return for assets
+  • Plotly Fan Chart — Monte Carlo projection cone
+  • Plotly Bar (grouped) — scenario comparison per goal
+  • Plotly Gauge — Financial Health Score, Risk Score
+  • Custom HTML/CSS — Financial Personality card
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                            TECHNICAL STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FRONTEND:       Streamlit 1.35+ with custom CSS injection
+CHARTING:       Plotly Express + Plotly Graph Objects
+DATA:           pandas, numpy, scipy (for statistical calculations)
+MARKET DATA:    yfinance (primary), investpy (fallback), manual fallback
+AI:             Anthropic Claude API (claude-haiku-3-5 for speed + cost)
+OPTIMISATION:   scipy.optimize (portfolio optimisation), custom Monte Carlo
+CACHING:        Streamlit @st.cache_data for market data (TTL: 4 hours)
+STATE:          Streamlit session_state (all user data in-session only)
+PRIVACY:        No data stored server-side. All processing is ephemeral.
+EXPORT:         PDF report generation via fpdf2 or reportlab
+
+PERFORMANCE TARGETS:
+  - Stage 1 (ingestion): <2 seconds
+  - Stage 2 (AI categorisation, 100 txns): <30 seconds (with progress bar)
+  - Stage 2 (analysis): <3 seconds
+  - Stage 5 (market data fetch + compute): <10 seconds
+  - Stage 6 (Monte Carlo 10k sims): <5 seconds (numpy vectorised)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                          DISCLAIMERS & COMPLIANCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SEBI DISCLAIMER (shown on every page with projections):
+  "Mutual fund investments are subject to market risks. Read all scheme-related 
+  documents carefully. Past performance is not indicative of future returns. 
+  This tool is for educational and illustrative purposes only and does not 
+  constitute SEBI-registered investment advice."
+
+DATA PRIVACY:
+  "Your uploaded statement is processed entirely in your browser session and 
+  is never stored on our servers. All data is cleared when you close the tab."
+
+PROJECTION ACCURACY NOTE:
+  "All projections use historical data. Actual returns may differ significantly. 
+  The scenarios shown represent a range of plausible outcomes, not guarantees."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                         FILES TO BUILD (Codebase Map)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  FinTechPro/
+  ├── app.py                      # Main Streamlit app, routing & layout
+  ├── config.py                   # Constants, risk profile grids, category maps
+  ├── styles.css                  # Custom CSS for dark theme + cards
+  │
+  ├── ingestion/
+  │   ├── data_loader.py          # CSV/PDF parsing, bank format detection
+  │   └── validator.py            # Data quality checks, integrity score
+  │
+  ├── analysis/
+  │   ├── ai_categoriser.py       # Claude API calls, batching, caching
+  │   ├── flow_analyser.py        # All Stage 2 flow intelligence modules
+  │   ├── behavioral_profiler.py  # Personality type engine
+  │   └── spending_optimiser.py   # Rule-based savings suggestions
+  │
+  ├── finance/
+  │   ├── health_scorer.py        # Financial Health Score computation
+  │   └── surplus_calculator.py   # Advanced surplus with all lock categories
+  │
+  ├── goals/
+  │   ├── goal_manager.py         # Multi-goal setup, conflict detection
+  │   └── risk_profiler.py        # Risk questionnaire & profile classification
+  │
+  ├── market/
+  │   ├── data_fetcher.py         # yfinance fetching with caching & fallback
+  │   ├── metrics_engine.py       # CAGR, Sharpe, VaR, correlation matrix
+  │   ├── portfolio_builder.py    # Allocation engine + efficient frontier
+  │   └── regime_detector.py      # Market regime classification
+  │
+  ├── projections/
+  │   ├── scenario_engine.py      # Bear/base/bull projections
+  │   ├── monte_carlo.py          # 10k simulation engine
+  │   └── action_planner.py       # Personalised action plan generator
+  │
+  ├── ui/
+  │   ├── charts.py               # All Plotly chart functions
+  │   ├── cards.py                # Custom HTML card components
+  │   └── report_exporter.py      # PDF report generation
+  │
+  └── data/
+      └── benchmarks.json         # Urban spending benchmarks, peer cohort data
+
+================================================================================
+                         END OF DOCUMENT
+================================================================================
+Total estimated Python LOC: ~3,500–4,500 lines
+Estimated build time (solo developer): 6–8 weeks
+Suggested deployment: Streamlit Community Cloud or self-hosted Docker
+================================================================================
